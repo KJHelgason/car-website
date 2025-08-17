@@ -1,0 +1,184 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import type { CarItem } from '@/types/form';
+import { supabase } from '@/lib/supabase';
+
+interface CarSearchFormProps {
+  onSearch: (data: CarItem) => void;
+  makes: string[];
+}
+
+export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
+  const [models, setModels] = useState<string[]>([]);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<CarItem>({
+    defaultValues: {
+      make: '',
+      model: '',
+      year: new Date().getFullYear().toString(),
+      kilometers: 0,
+      price: undefined
+    }
+  });
+
+  const selectedMake = watch('make');
+
+  useEffect(() => {
+    if (selectedMake) {
+      fetchModels(selectedMake);
+    } else {
+      setModels([]);
+    }
+  }, [selectedMake]);
+
+  const fetchModels = async (make: string) => {
+    // Get models from price_models first
+    const { data: modelData, error: modelError } = await supabase
+      .from('price_models')
+      .select('model_base')
+      .eq('make_norm', make.toLowerCase())
+      .not('model_base', 'is', null)
+      .order('model_base', { ascending: true });
+
+    if (modelError) {
+      console.log('Error fetching models from price_models:', modelError);
+      return;
+    }
+
+    if (modelData && modelData.length > 0) {
+      // Capitalize first letter of each model
+      const formattedModels = [...new Set(modelData.map(item => {
+        const model = item.model_base;
+        return model.charAt(0).toUpperCase() + model.slice(1);
+      }))];
+      setModels(formattedModels);
+    } else {
+      // Fallback to car_listings if no models found in price_models
+      const { data: listingModels, error: listingError } = await supabase
+        .from('car_listings')
+        .select('model')
+        .eq('make', make)
+        .order('model', { ascending: true });
+      
+      if (!listingError && listingModels) {
+        const uniqueModels = [...new Set(listingModels.map(item => item.model))];
+        setModels(uniqueModels);
+      }
+    }
+  };
+
+  const onSubmit = (data: CarItem) => {
+    onSearch(data);
+  };
+
+  return (
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="make">Car Make</Label>
+            <div className="relative">
+              <select
+                {...register('make', { required: true })}
+                className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select Make</option>
+                {makes.map((make) => (
+                  <option key={make} value={make}>
+                    {make}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-50">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </div>
+            {errors.make && <span className="text-red-500">This field is required</span>}
+          </div>
+
+          <div>
+            <Label htmlFor="model">Car Model</Label>
+            <div className="relative">
+              <select
+                {...register('model', { required: true })}
+                disabled={!selectedMake}
+                className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select Model</option>
+                {models.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-50">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </div>
+            {errors.model && <span className="text-red-500">This field is required</span>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="year">Year</Label>
+            <Input
+              type="number"
+              {...register('year', {
+                required: true,
+                min: 1900,
+                max: new Date().getFullYear() + 1,
+              })}
+            />
+            {errors.year && <span className="text-red-500">Please enter a valid year</span>}
+          </div>
+
+          <div>
+            <Label htmlFor="kilometers">Kilometers</Label>
+            <Input
+              type="number"
+              {...register('kilometers', {
+                required: true,
+                min: 0,
+              })}
+            />
+            {errors.kilometers && (
+              <span className="text-red-500">Please enter a valid mileage</span>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="price">Price (Optional)</Label>
+          <Input
+            type="number"
+            {...register('price', {
+              min: 0,
+            })}
+          />
+          {errors.price && (
+            <span className="text-red-500">Please enter a valid price</span>
+          )}
+        </div>
+
+        <Button type="submit" className="w-full">
+          Analyze Price
+        </Button>
+      </form>
+    </div>
+  );
+}

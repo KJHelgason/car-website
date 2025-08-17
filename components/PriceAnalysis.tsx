@@ -1,0 +1,190 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from 'recharts';
+import { CarAnalysis } from '@/types/car';
+import { useState } from 'react';
+
+interface PriceAnalysisProps {
+  analysis: CarAnalysis;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  isHovering: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  formatPrice: (price: number) => string;
+}
+
+const CustomTooltip = ({ active, payload, isHovering, onMouseEnter, onMouseLeave, formatPrice }: CustomTooltipProps) => {
+  if (!active && !isHovering) return null;
+  if (!payload || payload.length === 0) return null;
+
+  const data = payload[0].payload;
+
+  return (
+    <div
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="relative"
+      style={{ zIndex: 1000 }}
+    >
+      {/* Transparent bridge to maintain hover */}
+      <div 
+        className="absolute left-0 right-0"
+        style={{
+          top: -10,
+          height: '100%',
+          pointerEvents: 'auto'
+        }}
+      />
+      <div className="relative bg-white p-3 border rounded shadow-sm" style={{ pointerEvents: 'auto' }}>
+        {data.name && (
+          <p className="font-medium">
+            {data.url ? (
+              <a 
+                href={data.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {data.name} →
+              </a>
+            ) : (
+              data.name
+            )}
+          </p>
+        )}
+        <p>{`Driven: ${Math.round(data.kilometers).toLocaleString()} km`}</p>
+        <p>{`Price: ${formatPrice(Math.round(data.price))}`}</p>
+        {data.year && <p>{`Year: ${data.year}`}</p>}
+        {data.url && (
+          <a 
+            href={data.url}
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="block mt-2 text-sm text-blue-600 hover:underline"
+          >
+            View full listing →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export function PriceAnalysis({ analysis }: PriceAnalysisProps) {
+  const { targetCar, similarListings, priceCurve, estimatedPrice, priceRange, priceModel } = analysis;
+  const [isTooltipHovering, setIsTooltipHovering] = useState(false);
+  
+  // Format price for display
+  const formatPrice = (price: number) => {
+    if (!price || isNaN(price)) return 'N/A';
+    return new Intl.NumberFormat('is-IS', {
+      style: 'currency',
+      currency: 'ISK',
+      maximumFractionDigits: 0
+    }).format(price);
+  };
+
+  // Calculate if the price is fair
+  const getPriceAssessment = () => {
+    const priceDiff = ((targetCar.price - estimatedPrice) / estimatedPrice) * 100;
+    
+    if (priceDiff <= -10) return { text: 'Good Deal', color: 'text-green-600' };
+    if (priceDiff >= 10) return { text: 'Expensive', color: 'text-red-600' };
+    return { text: 'Fair Price', color: 'text-yellow-600' };
+  };
+
+  const assessment = getPriceAssessment();
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Price Analysis</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          <div className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 60 }}>
+                <XAxis
+                  type="number"
+                  dataKey="kilometers"
+                  name="Kilometers"
+                  unit=" km"
+                  tickFormatter={(value) => `${(value/1000).toFixed(0)}k`}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="price"
+                  name="Price"
+                  tickFormatter={(value) => `${(value/1000000).toFixed(1)}M`}
+                />
+                <Tooltip
+                  cursor={{ strokeDasharray: '3 3' }}
+                  content={(props) => (
+                    <CustomTooltip
+                      {...props}
+                      isHovering={isTooltipHovering}
+                      onMouseEnter={() => setIsTooltipHovering(true)}
+                      onMouseLeave={() => setIsTooltipHovering(false)}
+                      formatPrice={formatPrice}
+                    />
+                  )}
+                />
+                {/* Similar listings scatter plot */}
+                <Scatter
+                  name="Similar Cars"
+                  data={similarListings}
+                  fill="#94a3b8"
+                  opacity={0.6}
+                />
+                {/* Price curve */}
+                <Scatter
+                  name="Price Curve"
+                  data={priceCurve}
+                  fill="none"
+                  line={{ stroke: '#2563eb', strokeWidth: 2 }}
+                  lineType="joint"
+                />
+                {/* Target car */}
+                <Scatter
+                  name="Your Car"
+                  data={[targetCar]}
+                  fill="#ef4444"
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-sm font-medium">Estimated Fair Price</h3>
+              <p className="text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
+              <p className="text-sm text-gray-500">
+                Range: {formatPrice(priceRange.low)} - {formatPrice(priceRange.high)}
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium">Assessment</h3>
+              <p className={`text-2xl font-bold ${assessment.color}`}>
+                {assessment.text}
+              </p>
+              <p className="text-sm text-gray-500">
+                Based on {priceModel.n_samples} similar cars
+              </p>
+            </div>
+            <div className="col-span-2">
+              <h3 className="text-sm font-medium">Model Quality</h3>
+              <p className="text-sm text-gray-500">
+                R² Score: {(priceModel.r2 * 100).toFixed(1)}% • 
+                Average Error: ±{formatPrice(priceModel.rmse)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
