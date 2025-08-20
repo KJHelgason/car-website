@@ -169,7 +169,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                   validate: (value) => !isNaN(parseInt(value?.toString().replace(/[.,]/g, ''))) && parseInt(value?.toString().replace(/[.,]/g, '')) >= 0,
                   onChange: (e) => {
                     // Remove any non-digit characters
-                    let value = e.target.value.replace(/[^0-9]/g, '');
+                    const value = e.target.value.replace(/[^0-9]/g, '');
                     // Format with dots for thousands
                     if (value) {
                       const num = parseInt(value);
