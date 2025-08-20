@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -87,7 +87,7 @@ export function CarDeals() {
         )
         .map((car) => {
           // Find the most specific price model
-          let priceModel = priceModels.find(pm => 
+          const priceModel = priceModels.find(pm => 
             pm?.make_norm === car.make.toLowerCase() && pm?.model_base === car.model.toLowerCase()
           ) || priceModels.find(pm => 
             pm?.make_norm === car.make.toLowerCase() && !pm?.model_base

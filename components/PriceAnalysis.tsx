@@ -9,7 +9,7 @@ interface PriceAnalysisProps {
 
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: Array<{ payload: { price: number; kilometers: number; name?: string; url?: string; year?: string } }>;
   isHovering: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;

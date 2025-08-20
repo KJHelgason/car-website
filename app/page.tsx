@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { CarSearchForm } from '@/components/CarSearchForm';
 import { PriceAnalysis } from '@/components/PriceAnalysis';
 import { CarDeals } from '@/components/CarDeals';
-import type { PriceModel, CarListing, CarPricePoint, CarAnalysis } from '@/types/car';
+import type { CarPricePoint, CarAnalysis } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
