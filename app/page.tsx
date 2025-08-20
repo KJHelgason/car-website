@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { CarSearchForm } from '@/components/CarSearchForm';
 import { PriceAnalysis } from '@/components/PriceAnalysis';
 import { CarDeals } from '@/components/CarDeals';
-import type { CarPricePoint, CarAnalysis } from '@/types/car';
+import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
@@ -96,13 +96,16 @@ export default function Home() {
 
       // 2. Get the price model (try model-specific, then make-specific, then global)
       // Try to get model-specific first
-      let { data: priceModels, error: modelError } = await supabase
+            let priceModels: any[] | null = null;
+      const { data: initialModels, error: modelError } = await supabase
         .from('price_models')
         .select('*')
         .eq('make_norm', make_norm)
         .eq('model_base', model_base)
         .limit(1);
 
+      priceModels = initialModels;
+      
       // If no model-specific, try make-specific
       if (!priceModels || priceModels.length === 0) {
         const { data: makeModels, error } = await supabase
