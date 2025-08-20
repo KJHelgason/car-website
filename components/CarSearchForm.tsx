@@ -5,6 +5,14 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
@@ -20,6 +28,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CarItem>({
     defaultValues: {
@@ -86,56 +95,58 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="make">Car Make</Label>
-            <div className="relative">
-              <select
-                {...register('make', { required: true })}
-                className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">Select Make</option>
-                {makes.map((make) => (
-                  <option key={make} value={make}>
-                    {make}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-50">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </span>
-            </div>
+            <Label htmlFor="make" className="mb-2">Car Make</Label>
+            <Select
+              {...register('make', { required: true })}
+              value={watch('make')}
+              onValueChange={(value) => {
+                setValue('make', value);
+                setValue('model', ''); // Reset model when make changes
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Make" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {makes.map((make) => (
+                    <SelectItem key={make} value={make}>
+                      {make}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
             {errors.make && <span className="text-red-500">This field is required</span>}
           </div>
 
           <div>
-            <Label htmlFor="model">Car Model</Label>
-            <div className="relative">
-              <select
-                {...register('model', { required: true })}
-                disabled={!selectedMake}
-                className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">Select Model</option>
-                {models.map((model) => (
-                  <option key={model} value={model}>
-                    {model}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-50">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </span>
-            </div>
+            <Label htmlFor="model" className="mb-2">Car Model</Label>
+            <Select
+              disabled={!selectedMake}
+              value={watch('model')}
+              onValueChange={(value: string) => setValue('model', value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {models.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
             {errors.model && <span className="text-red-500">This field is required</span>}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="year">Year</Label>
+            <Label htmlFor="year" className="mb-2">Year</Label>
             <Input
               type="number"
               {...register('year', {
@@ -148,7 +159,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="kilometers">Kilometers</Label>
+            <Label htmlFor="kilometers" className="mb-2">Kilometers</Label>
             <Input
               type="number"
               {...register('kilometers', {
@@ -163,7 +174,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="price">Price (Optional)</Label>
+          <Label htmlFor="price" className="mb-2">Price (Optional)</Label>
           <Input
             type="number"
             {...register('price', {
