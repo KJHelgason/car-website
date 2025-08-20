@@ -160,13 +160,35 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
 
           <div>
             <Label htmlFor="kilometers" className="mb-2">Kilometers</Label>
-            <Input
-              type="number"
-              {...register('kilometers', {
-                required: true,
-                min: 0,
-              })}
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                inputMode="numeric"
+                {...register('kilometers', {
+                  required: true,
+                  validate: (value) => !isNaN(parseInt(value?.toString().replace(/[.,]/g, ''))) && parseInt(value?.toString().replace(/[.,]/g, '')) >= 0,
+                  onChange: (e) => {
+                    // Remove any non-digit characters
+                    let value = e.target.value.replace(/[^0-9]/g, '');
+                    // Format with dots for thousands
+                    if (value) {
+                      const num = parseInt(value);
+                      if (!isNaN(num)) {
+                        e.target.value = num.toLocaleString('is-IS');
+                      }
+                    }
+                  },
+                  setValueAs: (value) => {
+                    // Convert the formatted string back to a number, handling both dots and commas
+                    return parseInt(value?.toString().replace(/[.,]/g, '') || '0');
+                  }
+                })}
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                km
+              </span>
+            </div>
             {errors.kilometers && (
               <span className="text-red-500">Please enter a valid mileage</span>
             )}

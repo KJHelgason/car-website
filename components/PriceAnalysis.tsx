@@ -139,6 +139,12 @@ export function PriceAnalysis({ analysis }: PriceAnalysisProps) {
                   data={similarListings}
                   fill="#94a3b8"
                   opacity={0.6}
+                  onClick={(data) => {
+                    if (data?.url) {
+                      window.open(data.url, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
                 />
                 {/* Price curve */}
                 <Scatter
