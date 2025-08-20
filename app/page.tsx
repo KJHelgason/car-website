@@ -55,11 +55,11 @@ export default function Home() {
 
   // Helper function to calculate price using regression model
   const calculatePrice = (
-    coefficientsJson: string,
+    coefficientsJson: string | PriceModel['coef_json'],
     year: string,
     kilometers: number
   ) => {
-    const coefficients = JSON.parse(coefficientsJson);
+    const coefficients = typeof coefficientsJson === 'string' ? JSON.parse(coefficientsJson) : coefficientsJson;
     const currentYear = new Date().getFullYear();
     const age = currentYear - parseInt(year);
     const logKm = Math.log(1 + kilometers);
@@ -72,7 +72,7 @@ export default function Home() {
 
   // Helper function to generate points for the price curve
   const generateCurvePoints = (
-    coefficientsJson: string,
+    coefficientsJson: string | PriceModel['coef_json'],
     year: string,
     kmRange: [number, number],
     points: number = 50
@@ -96,7 +96,7 @@ export default function Home() {
 
       // 2. Get the price model (try model-specific, then make-specific, then global)
       // Try to get model-specific first
-            let priceModels: any[] | null = null;
+            let priceModels: PriceModel[] | null = null;
       const { data: initialModels, error: modelError } = await supabase
         .from('price_models')
         .select('*')
