@@ -190,7 +190,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
               </span>
             </div>
             {errors.kilometers && (
-              <span className="text-red-500">Please enter a valid mileage</span>
+              <span className="text-red-500">Please enter a valid mileage!</span>
             )}
           </div>
         </div>
