@@ -50,10 +50,14 @@ export function CarDeals() {
   const fetchDeals = async () => {
     setIsLoading(true);
     try {
-      // Fetch the 50 cheapest cars
+      // Fetch the 50 cheapest cars above 50,000 ISK with valid makes
       const { data: cheapestData, error: cheapestError } = await supabase
         .from('car_listings')
         .select('*')
+        .gt('price', 50000)
+        .not('make', 'is', null)
+        .not('make', 'eq', '')
+        .not('make', 'ilike', 'unknown')
         .order('price', { ascending: true })
         .limit(50);
 
@@ -70,6 +74,7 @@ export function CarDeals() {
       const { data: dealsData, error: dealsError } = await supabase
         .from('car_listings')
         .select('*')
+        .gt('price', 50000)
         .order('scraped_at', { ascending: false })
         .limit(200);
 

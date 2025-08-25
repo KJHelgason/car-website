@@ -35,13 +35,16 @@ export interface CarPricePoint {
   isCurve?: boolean;
   name?: string;
   year?: string;
+  yearRange?: string;
   url?: string;
 }
 
 export interface CarAnalysis {
   targetCar: CarPricePoint;
   similarListings: CarPricePoint[];
-  priceCurve: CarPricePoint[];
+  priceCurves: {
+    [year: string]: CarPricePoint[];
+  };
   priceModel: PriceModel;
   estimatedPrice: number;
   priceRange: {
