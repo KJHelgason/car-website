@@ -91,10 +91,6 @@ export default function Home() {
       console.error('Error calculating price:', error);
       return NaN;
     }
-    
-
-    
-    return price;
   };
 
   // Helper function to generate points for the price curve

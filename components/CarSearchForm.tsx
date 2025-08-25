@@ -250,8 +250,8 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                     // allow empty, otherwise must be a valid non-negative integer
                     if (
                       value === undefined ||
-                      value === null ||
-                      value === ''
+                      value === null //||
+                      //value === ''
                     ) {
                       return true;
                     }
