@@ -18,18 +18,18 @@ interface PriceAnalysisProps {
   onYearChange?: (year: number) => void
 }
 
+interface PricePoint {
+  price: number
+  kilometers: number
+  name?: string
+  url?: string
+  year?: string
+  isTarget?: boolean
+}
+
 interface CustomTooltipProps {
   active?: boolean
-  payload?: Array<{
-    payload: {
-      price: number
-      kilometers: number
-      name?: string
-      url?: string
-      year?: string
-      isTarget?: boolean
-    }
-  }>
+  payload?: Array<{ payload: PricePoint }>
   isHovering: boolean
   onMouseEnter: () => void
   onMouseLeave: () => void
@@ -53,7 +53,7 @@ const CustomTooltip = ({
     <div
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="relative"
+      className="relative transition-opacity duration-150 ease-out"
       style={{ zIndex: 80 }}
     >
       {/* Transparent bridge to maintain hover */}
@@ -184,7 +184,7 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
           />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
-            isAnimationActive={false}   // ⬅️ disable the slide-in
+            isAnimationActive={false}
             content={(props) => (
               <div className="transition-opacity duration-150 ease-out">
                 <CustomTooltip
@@ -209,9 +209,9 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
             })}
             fill="#94a3b8"
             opacity={0.6}
-            onClick={(data: any) => {
-              if (data?.url) {
-                window.open(data.url, '_blank', 'noopener,noreferrer')
+            onClick={(point: PricePoint) => {
+              if (point?.url) {
+                window.open(point.url, '_blank', 'noopener,noreferrer')
               }
             }}
             style={{ cursor: 'pointer' }}
@@ -230,7 +230,7 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
               <Scatter
                 key={year}
                 name={`Price Curve ${year}`}
-                data={curve as any}
+                data={curve as PricePoint[]}
                 fill="none"
                 line={{ stroke: '#2563eb', strokeWidth: 2, strokeOpacity: opacity }}
                 lineType="joint"
@@ -238,7 +238,7 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
             )
           })}
           {/* Target car */}
-          <Scatter name="Your Car" data={[targetCar] as any} fill="#ef4444" />
+          <Scatter name="Your Car" data={[targetCar as PricePoint]} fill="#ef4444" />
         </ScatterChart>
       </ResponsiveContainer>
     </div>
@@ -246,7 +246,6 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
 
   // Inner card content (reused in both normal and expanded modes)
   const CardInner = (isInOverlay: boolean) => {
-    const gridCols = isInOverlay ? 'grid-cols-3' : 'grid-cols-2'
     const modelQualitySpan = isInOverlay ? '' : 'col-span-2'
 
     return (
@@ -324,8 +323,8 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
 
               <div>
                 <h3 className="text-sm font-medium">Assessment</h3>
-                <p className={`text-2xl font-bold ${getPriceAssessment().color}`}>
-                  {getPriceAssessment().text}
+                <p className={`text-2xl font-bold ${assessment.color}`}>
+                  {assessment.text}
                 </p>
                 <p className="text-sm text-gray-500">Based on {priceModel.n_samples} similar cars</p>
               </div>

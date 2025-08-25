@@ -201,7 +201,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                     !isNaN(
                       parseInt(value?.toString().replace(/[.,]/g, ''))
                     ) && parseInt(value?.toString().replace(/[.,]/g, '')) >= 0,
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                  onChange: (e) => {
                     // Remove any non-digit characters
                     const value = e.target.value.replace(/[^0-9]/g, '');
                     // Format with dots for thousands
@@ -214,7 +214,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                       e.target.value = '';
                     }
                   },
-                  setValueAs: (value: string | undefined) => {
+                  setValueAs: (value) => {
                     // Convert the formatted string back to a number, handling both dots and commas
                     return parseInt(
                       value?.toString().replace(/[.,]/g, '') || '0'
@@ -258,7 +258,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                     const n = parseInt(value.toString().replace(/[.,]/g, ''));
                     return !isNaN(n) && n >= 0;
                   },
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                  onChange: (e) => {
                     const raw = e.target.value.replace(/[^0-9]/g, '');
                     if (raw) {
                       const num = parseInt(raw);
@@ -269,7 +269,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                       e.target.value = '';
                     }
                   },
-                  setValueAs: (value: string | undefined) => {
+                  setValueAs: (value) => {
                     // map formatted string to number; keep undefined if empty to satisfy optional field
                     const raw = value?.toString().replace(/[.,]/g, '');
                     if (!raw) return undefined;
