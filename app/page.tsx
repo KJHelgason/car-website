@@ -8,10 +8,21 @@ import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
+// Minimal shape we read from Supabase for car_listings
+interface DbCarListing {
+  make: string;
+  model: string;
+  year: string;           // DB returns string; we parse to number where needed
+  kilometers: number;
+  price: number;
+  url: string;
+  scraped_at?: string;
+}
+
 export default function Home() {
   const [analysis, setAnalysis] = useState<CarAnalysis | null>(null);
   const [makes, setMakes] = useState<string[]>([]);
-  const [searchedYear, setSearchedYear] = useState<string | null>(null); // ⬅️ NEW
+  const [searchedYear, setSearchedYear] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMakes();
@@ -110,7 +121,7 @@ export default function Home() {
 
   const handleSearch = async (data: CarItem) => {
     try {
-      setSearchedYear(data.year ?? 'all'); // ⬅️ NEW: remember what the user searched
+      setSearchedYear(data.year ?? 'all');
 
       // 1. Normalize make and model
       const make_norm = data.make.toLowerCase();
@@ -156,27 +167,20 @@ export default function Home() {
 
       const priceModel = priceModels[0];
 
-      // 3. Get similar car listings
-      let similarCars = [];
+      // 3. Get similar car listings (⚠️ do NOT filter by year; let UI decide)
+      let similarCars: DbCarListing[] = [];
       try {
-        // Build the query: ⬅️ IMPORTANT — do NOT filter by year.
-        // We want all years so the UI can fall back to "all years" if selected year has no cars.
-        let query = supabase
+        const query = supabase
           .from('car_listings')
           .select('*')
           .ilike('make', make_norm)
           .ilike('model', `%${model_base}%`)
           .not('year', 'is', null); // Only valid years
 
-        // NOTE: Removed the year filter here:
-        // if (data.year !== 'all') {
-        //   query = query.eq('year', data.year);
-        // }
-
         const { data: listings, error } = await query.order('scraped_at', { ascending: false });
         if (error) console.error('Supabase query error:', error);
 
-        similarCars = listings ?? [];
+        similarCars = (listings ?? []) as DbCarListing[];
       } catch (error) {
         console.error('Could not fetch similar listings:', error);
       }
@@ -185,15 +189,15 @@ export default function Home() {
       let price: number;
       if (data.year === 'all') {
         const validYears = similarCars
-          .map((car: any) => car.year)
-          .filter((year: unknown): year is string => year !== null && year !== undefined)
-          .map((year: string) => parseInt(year))
-          .filter((n: number) => !isNaN(n));
+          .map((car) => car.year)
+          .filter((year): year is string => year !== null && year !== undefined)
+          .map((year) => parseInt(year))
+          .filter((n) => !isNaN(n));
 
         const averageYear =
           validYears.length > 0
-            ? Math.round(validYears.reduce((a: number, b: number) => a + b, 0) / validYears.length)
-            : new Date().getFullYear(); // fallback to current year if none
+            ? Math.round(validYears.reduce((a, b) => a + b, 0) / validYears.length)
+            : new Date().getFullYear();
 
         price = calculatePrice(priceModel.coef_json, averageYear.toString(), data.kilometers);
       } else {
@@ -216,7 +220,7 @@ export default function Home() {
       };
 
       // 6. Curves for years we have data for
-      const yearsWithData = [...new Set(similarCars.map((car: any) => car.year))] as string[];
+      const yearsWithData = [...new Set(similarCars.map((car) => car.year))];
       const kmRange: [number, number] = [0, 300000];
       const curves: { [year: string]: CarPricePoint[] } = {};
       yearsWithData.forEach((year) => {
@@ -227,7 +231,7 @@ export default function Home() {
       });
 
       // 7. Format similar listings
-      const similarListings: CarPricePoint[] = similarCars.map((car: any) => ({
+      const similarListings: CarPricePoint[] = similarCars.map((car) => ({
         kilometers: car.kilometers,
         price: car.price,
         name: `${car.make} ${car.model}`,
@@ -275,7 +279,7 @@ export default function Home() {
         {analysis && (
           <PriceAnalysis 
             analysis={analysis}
-            searchedYear={searchedYear}   // ⬅️ NEW: tell the component what the user asked for
+            searchedYear={searchedYear}
             onYearChange={(year) => {
               if (analysis) {
                 const price = calculatePrice(
