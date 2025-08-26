@@ -16,6 +16,8 @@ import { Maximize2, X } from 'lucide-react'
 interface PriceAnalysisProps {
   analysis: CarAnalysis
   onYearChange?: (year: number) => void
+  /** 'all' | 'YYYY' from the search form */
+  searchedYear?: string | null
 }
 
 interface PricePoint {
@@ -93,20 +95,21 @@ const CustomTooltip = ({
   )
 }
 
-export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
+export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAnalysisProps) {
   const { targetCar, similarListings, priceCurves, estimatedPrice, priceRange, priceModel } =
     analysis
   const [isTooltipHovering, setIsTooltipHovering] = useState(false)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
+  const [noYearData, setNoYearData] = useState(false)
 
-  // Build year options & default to the year with the most listings
+  // Build year options & choose a single default year
   useEffect(() => {
     const yearCounts = similarListings.reduce((acc, listing) => {
       if (listing.year) {
-        const year = parseInt(listing.year)
-        acc[year] = (acc[year] || 0) + 1
+        const y = parseInt(listing.year)
+        acc[y] = (acc[y] || 0) + 1
       }
       return acc
     }, {} as Record<number, number>)
@@ -117,14 +120,36 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
 
     setAvailableYears(years)
 
-    if (years.length > 0) {
-      const yearWithMostResults = years.reduce(
-        (maxYear, y) => (yearCounts[y] > yearCounts[maxYear] ? y : maxYear),
-        years[0]
-      )
-      setSelectedYear(yearWithMostResults)
+    if (years.length === 0) {
+      // no data at all
+      setSelectedYear(null)
+      setNoYearData(false)
+      return
     }
-  }, [similarListings])
+
+    // pick the year with the most cars
+    const yearWithMostResults = years.reduce((maxY, y) =>
+      yearCounts[y] > yearCounts[maxY] ? y : maxY
+    , years[0])
+
+    const hasSearched = searchedYear && searchedYear !== 'all' && !Number.isNaN(parseInt(searchedYear))
+    if (hasSearched) {
+      const y = parseInt(searchedYear as string)
+      if (yearCounts[y] && yearCounts[y] > 0) {
+        setSelectedYear(y)
+        setNoYearData(false)
+        return
+      }
+      // searched year has no cars -> fall back to most-cars year, show message
+      setSelectedYear(yearWithMostResults)
+      setNoYearData(true)
+      return
+    }
+
+    // 'all' or no search year -> default to the year with most results
+    setSelectedYear(yearWithMostResults)
+    setNoYearData(false)
+  }, [similarListings, searchedYear])
 
   // Prevent background scroll while expanded
   useEffect(() => {
@@ -164,7 +189,7 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
   }
   const assessment = getPriceAssessment()
 
-  // Shared chart block (height is controlled by parent)
+  // Chart (always shows only the selectedYear's data)
   const ChartBlock = (heightClass: string) => (
     <div className={heightClass}>
       <ResponsiveContainer width="100%" height="100%">
@@ -175,12 +200,14 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
             name="Kilometers"
             unit=" km"
             tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+            label={{ value: 'Kilometers Driven', position: 'insideBottom', offset: -15 }}
           />
           <YAxis
             type="number"
             dataKey="price"
             name="Price"
             tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`}
+            label={{ value: 'Price (ISK)', angle: -90, position: 'insideLeft', offset: -15 }}
           />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
@@ -199,44 +226,38 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
             wrapperStyle={{ zIndex: 80 }}
           />
 
-          {/* Similar listings */}
+          {/* Similar listings (filter to selectedYear, always) */}
           <Scatter
             name="Similar Cars"
             data={similarListings.filter((listing) => {
               if (listing.isTarget) return true
               const listingYear = listing.year ? parseInt(listing.year) : null
-              return selectedYear ? listingYear === selectedYear : true
+              // If we have a selectedYear, only show that year; if not, show none (fallback).
+              return selectedYear ? listingYear === selectedYear : false
             })}
             fill="#94a3b8"
             opacity={0.6}
             onClick={(point: PricePoint) => {
-              if (point?.url) {
-                window.open(point.url, '_blank', 'noopener,noreferrer')
-              }
+              if (point?.url) window.open(point.url, '_blank', 'noopener,noreferrer')
             }}
             style={{ cursor: 'pointer' }}
           />
-          {/* Price curves */}
+
+          {/* Price curve — only for selectedYear */}
           {Object.entries(priceCurves).map(([year, curve]) => {
-            if (selectedYear && parseInt(year) !== selectedYear) return null
-
-            const yearNum = parseInt(year)
-            const maxYear = Math.max(...availableYears)
-            const minYear = Math.min(...availableYears)
-            const denom = Math.max(1, maxYear - minYear)
-            const opacity = selectedYear ? 1 : 0.4 + 0.6 * ((yearNum - minYear) / denom)
-
+            if (!selectedYear || parseInt(year) !== selectedYear) return null
             return (
               <Scatter
                 key={year}
                 name={`Price Curve ${year}`}
                 data={curve as PricePoint[]}
                 fill="none"
-                line={{ stroke: '#2563eb', strokeWidth: 2, strokeOpacity: opacity }}
+                line={{ stroke: '#2563eb', strokeWidth: 2, strokeOpacity: 1 }}
                 lineType="joint"
               />
             )
           })}
+
           {/* Target car */}
           <Scatter name="Your Car" data={[targetCar as PricePoint]} fill="#ef4444" />
         </ScatterChart>
@@ -251,7 +272,14 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
     return (
       <>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle>Price Analysis</CardTitle>
+          <div className="flex flex-col">
+            <CardTitle>Price Analysis</CardTitle>
+            {noYearData && (
+              <span className="mt-1 text-xs text-amber-600">
+                No cars for selected year found — Showing most populated year.
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Select
               value={selectedYear?.toString()}
@@ -259,9 +287,9 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
                 const newYear = parseInt(value)
                 setSelectedYear(newYear)
                 onYearChange?.(newYear)
+                setNoYearData(false)
               }}
             >
-              {/* NOTE: SelectContent portals to <body>. We bump z-index so it appears above the overlay. */}
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
@@ -352,7 +380,6 @@ export function PriceAnalysis({ analysis, onYearChange }: PriceAnalysisProps) {
       {isExpanded && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center"
-          // Backdrop click closes
           onClick={() => setIsExpanded(false)}
         >
           {/* Backdrop */}

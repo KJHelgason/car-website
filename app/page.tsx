@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 export default function Home() {
   const [analysis, setAnalysis] = useState<CarAnalysis | null>(null);
   const [makes, setMakes] = useState<string[]>([]);
+  const [searchedYear, setSearchedYear] = useState<string | null>(null); // ⬅️ NEW
 
   useEffect(() => {
     fetchMakes();
@@ -32,7 +33,7 @@ export default function Home() {
     if (modelMakes && modelMakes.length > 0) {
       // Capitalize first letter of each make
       const formattedMakes = [...new Set(modelMakes.map(item => {
-        const make = item.make_norm;
+        const make = item.make_norm as string;
         return make.charAt(0).toUpperCase() + make.slice(1);
       }))];
       setMakes(formattedMakes);
@@ -44,7 +45,7 @@ export default function Home() {
         .order('make', { ascending: true });
       
       if (!listingError && listingMakes) {
-        const uniqueMakes = [...new Set(listingMakes.map(item => item.make))];
+        const uniqueMakes = [...new Set(listingMakes.map(item => item.make as string))];
         setMakes(uniqueMakes);
       }
     }
@@ -60,23 +61,18 @@ export default function Home() {
       const coefficients = typeof coefficientsJson === 'string' ? JSON.parse(coefficientsJson) : coefficientsJson;
       const currentYear = new Date().getFullYear();
       
-      // Validate inputs
-      if (year === null) {
-        return NaN; // Silently return NaN for null years
-      }
-      
+      if (year === null) return NaN;
       if (!year || isNaN(parseInt(year))) {
         console.error('Invalid year format:', year);
         return NaN;
       }
-      
       if (typeof kilometers !== 'number' || isNaN(kilometers)) {
         console.error('Invalid kilometers value:', kilometers);
         return NaN;
       }
       
       const age = currentYear - parseInt(year);
-      const logKm = Math.log(1 + Math.max(0, kilometers)); // Ensure kilometers is not negative
+      const logKm = Math.log(1 + Math.max(0, kilometers));
       
       if (!coefficients || typeof coefficients !== 'object') {
         console.error('Invalid coefficients:', coefficients);
@@ -114,13 +110,15 @@ export default function Home() {
 
   const handleSearch = async (data: CarItem) => {
     try {
+      setSearchedYear(data.year ?? 'all'); // ⬅️ NEW: remember what the user searched
+
       // 1. Normalize make and model
       const make_norm = data.make.toLowerCase();
       const model_base = data.model.toLowerCase();
 
       // 2. Get the price model (try model-specific, then make-specific, then global)
       let priceModels: PriceModel[] | null = null;
-      const { data: initialModels, error: modelError } = await supabase
+      const { data: initialModels } = await supabase
         .from('price_models')
         .select('*')
         .eq('make_norm', make_norm)
@@ -157,52 +155,51 @@ export default function Home() {
       }
 
       const priceModel = priceModels[0];
-      console.log('Found price model:', priceModel);
 
       // 3. Get similar car listings
       let similarCars = [];
       try {
-        // Build the query
+        // Build the query: ⬅️ IMPORTANT — do NOT filter by year.
+        // We want all years so the UI can fall back to "all years" if selected year has no cars.
         let query = supabase
           .from('car_listings')
           .select('*')
           .ilike('make', make_norm)
           .ilike('model', `%${model_base}%`)
-          .not('year', 'is', null); // Only get listings with valid years
+          .not('year', 'is', null); // Only valid years
 
-        // Add year filter only if a specific year is selected
-        if (data.year !== 'all') {
-          query = query.eq('year', data.year);
-        }
+        // NOTE: Removed the year filter here:
+        // if (data.year !== 'all') {
+        //   query = query.eq('year', data.year);
+        // }
 
-        // Get the listings
         const { data: listings, error } = await query.order('scraped_at', { ascending: false });
-
-        if (error) {
-          console.error('Supabase query error:', error);
-        }
+        if (error) console.error('Supabase query error:', error);
 
         similarCars = listings ?? [];
-        console.log('Found similar cars:', similarCars.length);
       } catch (error) {
         console.error('Could not fetch similar listings:', error);
       }
 
       // 4. Calculate estimated price using the regression model
-      let price;
+      let price: number;
       if (data.year === 'all') {
-        // If no specific year is selected, use the average year of similar listings
         const validYears = similarCars
-          .map(car => car.year)
-          .filter(year => year !== null)
-          .map(year => parseInt(year));
-        const averageYear = Math.round(validYears.reduce((a, b) => a + b, 0) / validYears.length);
+          .map((car: any) => car.year)
+          .filter((year: unknown): year is string => year !== null && year !== undefined)
+          .map((year: string) => parseInt(year))
+          .filter((n: number) => !isNaN(n));
+
+        const averageYear =
+          validYears.length > 0
+            ? Math.round(validYears.reduce((a: number, b: number) => a + b, 0) / validYears.length)
+            : new Date().getFullYear(); // fallback to current year if none
+
         price = calculatePrice(priceModel.coef_json, averageYear.toString(), data.kilometers);
       } else {
         price = calculatePrice(priceModel.coef_json, data.year, data.kilometers);
       }
       
-      // Ensure price is a valid number
       if (isNaN(price)) {
         console.error('Price calculation resulted in NaN:', {
           year: data.year,
@@ -212,25 +209,25 @@ export default function Home() {
         return;
       }
 
-      // 5. Calculate price range (±RMSE)
+      // 5. Price range (±RMSE)
       const priceRange = {
         low: price - priceModel.rmse,
         high: price + priceModel.rmse
       };
 
-      // 6. Get unique years from similar listings and generate curves
-      const yearsWithData = [...new Set(similarCars.map(car => car.year))];
+      // 6. Curves for years we have data for
+      const yearsWithData = [...new Set(similarCars.map((car: any) => car.year))] as string[];
       const kmRange: [number, number] = [0, 300000];
-      
-      // Generate curves only for years we have data for
       const curves: { [year: string]: CarPricePoint[] } = {};
-      yearsWithData.forEach(year => {
-        const yearCurve = generateCurvePoints(priceModel.coef_json, year, kmRange);
-        curves[year] = yearCurve;
+      yearsWithData.forEach((year) => {
+        if (year) {
+          const yearCurve = generateCurvePoints(priceModel.coef_json, year, kmRange);
+          curves[year] = yearCurve;
+        }
       });
 
-      // 7. Format similar listings for display
-      const similarListings: CarPricePoint[] = similarCars.map(car => ({
+      // 7. Format similar listings
+      const similarListings: CarPricePoint[] = similarCars.map((car: any) => ({
         kilometers: car.kilometers,
         price: car.price,
         name: `${car.make} ${car.model}`,
@@ -238,13 +235,11 @@ export default function Home() {
         url: car.url
       }));
 
-      console.log('Similar listings found:', similarCars.length, similarListings);
-
-      // 8. Create target car point
+      // 8. Target car point
       const targetCar: CarPricePoint = {
         kilometers: data.kilometers,
-        price: data.price || price, // Use search price if provided, otherwise use estimated price
-        searchPrice: data.price, // Store the search price separately
+        price: data.price || price,
+        searchPrice: data.price,
         isTarget: true,
         name: `${data.make} ${data.model}`,
         year: data.year === 'all' ? undefined : data.year
@@ -279,11 +274,15 @@ export default function Home() {
         
         {analysis && (
           <PriceAnalysis 
-            analysis={analysis} 
+            analysis={analysis}
+            searchedYear={searchedYear}   // ⬅️ NEW: tell the component what the user asked for
             onYearChange={(year) => {
               if (analysis) {
-                // Update the estimated price with the new year
-                const price = calculatePrice(analysis.priceModel.coef_json, year.toString(), analysis.targetCar.kilometers);
+                const price = calculatePrice(
+                  analysis.priceModel.coef_json,
+                  year.toString(),
+                  analysis.targetCar.kilometers
+                );
                 setAnalysis({
                   ...analysis,
                   estimatedPrice: price,
