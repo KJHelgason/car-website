@@ -115,11 +115,15 @@ const TargetRing: React.FC<ScatterShapeProps> = ({ cx, cy }) => {
   if (cx == null || cy == null) return null
   return (
     <g style={{ pointerEvents: 'none' }}>
-      {/* outer ring */}
-      <circle cx={cx} cy={cy} r={5} fill="none" stroke="#ef4444" strokeWidth={2} />
-      {/* tiny core to keep it visible even if center aligns perfectly */}
+      <circle cx={cx} cy={cy} r={7} fill="none" stroke="#ef4444" strokeWidth={3} />
+      <circle cx={cx} cy={cy} r={2} fill="#ef4444" />
     </g>
   )
+}
+
+// Type guard to avoid `any` when reading priceModel.tier
+function isTier(x: unknown): x is 'model_year' | 'model' | 'make' | 'global' {
+  return x === 'model_year' || x === 'model' || x === 'make' || x === 'global'
 }
 
 export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAnalysisProps) {
@@ -134,7 +138,8 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
   // Per-year curve overrides (null = checked and not found; array = found curve)
   const [yearCurveOverride, setYearCurveOverride] = useState<Record<number, PricePoint[] | null>>({})
 
-  const calcPriceFromCoef = (coef: CoefJson, year: number, km: number) => {
+  // Helper to compute price from coefficients (stable ref for hooks)
+  const calcPriceFromCoef = useCallback((coef: CoefJson, year: number, km: number) => {
     const currentYear = new Date().getFullYear()
     const age = currentYear - year
     const logkm = Math.log(1 + Math.max(0, km))
@@ -144,28 +149,34 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
       coef.beta_logkm * logkm +
       coef.beta_age_logkm * (age * logkm)
     )
-  }
+  }, [])
 
-  const buildCurveFromCoef = (coef: CoefJson, year: number): PricePoint[] => {
-    const [minKm, maxKm] = [0, 300_000]
-    const points = 50
-    const step = (maxKm - minKm) / (points - 1)
-    const data: PricePoint[] = []
-    for (let i = 0; i < points; i++) {
-      const km = minKm + i * step
-      data.push({
-        kilometers: km,
-        price: calcPriceFromCoef(coef, year, km),
-        year: String(year),
-      })
-    }
-    return data
-  }
+  // Build curve points from a coef_json (stable ref for hooks)
+  const buildCurveFromCoef = useCallback(
+    (coef: CoefJson, year: number): PricePoint[] => {
+      const [minKm, maxKm] = [0, 300_000]
+      const points = 50
+      const step = (maxKm - minKm) / (points - 1)
+      const data: PricePoint[] = []
+      for (let i = 0; i < points; i++) {
+        const km = minKm + i * step
+        data.push({
+          kilometers: km,
+          price: calcPriceFromCoef(coef, year, km),
+          year: String(year),
+        })
+      }
+      return data
+    },
+    [calcPriceFromCoef]
+  )
 
   // Try to fetch a per-year model for the selected year and override the curve
   useEffect(() => {
     const pm = priceModel as PriceModelLike
     if (!selectedYear || !pm?.make_norm || !pm?.model_base) return
+
+    // Only fetch once per year
     if (Object.prototype.hasOwnProperty.call(yearCurveOverride, selectedYear)) return
 
     let cancelled = false
@@ -201,7 +212,8 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     return () => {
       cancelled = true
     }
-  }, [selectedYear, priceModel, yearCurveOverride])
+    // ✅ include buildCurveFromCoef to satisfy exhaustive-deps
+  }, [selectedYear, priceModel, yearCurveOverride, buildCurveFromCoef])
 
   // Build year options & choose a single default year
   useEffect(() => {
@@ -248,6 +260,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     setNoYearData(false)
   }, [similarListings, searchedYear])
 
+  // Prevent background scroll while expanded
   useEffect(() => {
     if (isExpanded) {
       const original = document.body.style.overflow
@@ -258,6 +271,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     }
   }, [isExpanded])
 
+  // Close on Esc
   const onKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') setIsExpanded(false)
   }, [])
@@ -284,11 +298,12 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
   }
   const assessment = getPriceAssessment()
 
-  // Which tier powers the curve right now (badge)
+  // Which tier powers the curve right now (badge) — no `any` needed
   const curveTier: 'model_year' | 'model' | 'make' | 'global' = useMemo(() => {
     if (selectedYear && Array.isArray(yearCurveOverride[selectedYear])) return 'model_year'
     const pm = priceModel as PriceModelLike
-    return (pm?.tier as any) || 'model'
+    const t = pm?.tier
+    return isTier(t) ? t : 'model'
   }, [selectedYear, yearCurveOverride, priceModel])
 
   const tierBadge = useMemo(() => {
@@ -391,7 +406,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
             />
           )}
 
-          {/* Target car as a non-interactive ring so underlying grey stays clickable */}
+          {/* Target car as non-interactive ring so underlying grey stays clickable */}
           <Scatter
             name="Your Car"
             data={[targetCar as PricePoint]}

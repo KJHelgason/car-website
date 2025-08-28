@@ -267,20 +267,6 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
   const dismissBestDeal = (id: number) => setBestDeals(prev => prev.filter(d => d.id !== id));
   const dismissCheapest = (id: number) => setCheapestCars(prev => prev.filter(d => d.id !== id));
 
-  // Sum of per-year basis across unique (make, modelBase, year)
-  const totalYearBasis = useMemo(() => {
-    const seen = new Set<string>();
-    let sum = 0;
-    for (const d of bestDeals) {
-      if (typeof d.year !== 'number' || d.year_n_samples == null) continue;
-      const key = `${d.make.toLowerCase()}|${toModelBase(d.model)}|${d.year}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      sum += d.year_n_samples;
-    }
-    return sum;
-  }, [bestDeals]);
-
   return (
     <>
       <Button
