@@ -115,8 +115,7 @@ const TargetRing: React.FC<ScatterShapeProps> = ({ cx, cy }) => {
   if (cx == null || cy == null) return null
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <circle cx={cx} cy={cy} r={7} fill="none" stroke="#ef4444" strokeWidth={3} />
-      <circle cx={cx} cy={cy} r={2} fill="#ef4444" />
+      <circle cx={cx} cy={cy} r={5} fill="none" stroke="#ef4444" strokeWidth={2} />
     </g>
   )
 }
@@ -314,7 +313,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
       global: 'bg-slate-50 text-slate-700 border-slate-200',
     }
     const labels: Record<typeof curveTier, string> = {
-      model_year: selectedYear ? `Using: ${selectedYear} model` : 'Using: Year-specific',
+      model_year: selectedYear ? `${selectedYear} Model` : 'Using: Year-specific',
       model: 'Using: Model',
       make: 'Using: Make',
       global: 'Using: Global',
