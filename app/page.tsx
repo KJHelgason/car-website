@@ -19,6 +19,23 @@ interface DbCarListing {
   scraped_at?: string;
 }
 
+// Normalize helpers
+const normalizeTwoWords = (s: string) =>
+  s
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .split(/\s+/)
+    .slice(0, 2)
+    .join(' ');
+
+const normalizeOneWord = (s: string) =>
+  s
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .split(/\s+/)[0] ?? '';
+
 export default function Home() {
   const [analysis, setAnalysis] = useState<CarAnalysis | null>(null);
   const [makes, setMakes] = useState<string[]>([]);
@@ -119,73 +136,84 @@ export default function Home() {
     });
   };
 
+  // Pick the best available price model: 2-word → 1-word → make-only → global
+  const pickPriceModel = async (make_norm: string, modelTwo: string, modelOne: string) => {
+    const { data: two } = await supabase
+      .from('price_models')
+      .select('*')
+      .eq('make_norm', make_norm)
+      .eq('model_base', modelTwo)
+      .limit(1);
+    if (two && two.length > 0) return two[0];
+
+    const { data: one } = await supabase
+      .from('price_models')
+      .select('*')
+      .eq('make_norm', make_norm)
+      .eq('model_base', modelOne)
+      .limit(1);
+    if (one && one.length > 0) return one[0];
+
+    const { data: makeOnly } = await supabase
+      .from('price_models')
+      .select('*')
+      .eq('make_norm', make_norm)
+      .is('model_base', null)
+      .limit(1);
+    if (makeOnly && makeOnly.length > 0) return makeOnly[0];
+
+    const { data: global } = await supabase
+      .from('price_models')
+      .select('*')
+      .is('make_norm', null)
+      .is('model_base', null)
+      .limit(1);
+    return global ? global[0] : null;
+  };
+
+  // Fetch listings with a model pattern
+  const fetchListings = async (make_norm: string, modelPattern: string) => {
+    const { data, error } = await supabase
+      .from('car_listings')
+      .select('*')
+      .ilike('make', make_norm)              // case-insensitive exact make
+      .ilike('model', `%${modelPattern}%`)   // broad match on model
+      .not('year', 'is', null)
+      .order('scraped_at', { ascending: false });
+    if (error) {
+      console.error('Supabase query error:', error);
+      return [] as DbCarListing[];
+    }
+    return (data ?? []) as DbCarListing[];
+  };
+
   const handleSearch = async (data: CarItem) => {
     try {
       setSearchedYear(data.year ?? 'all');
 
-      // 1. Normalize make and model
-      const make_norm = data.make.toLowerCase();
-      const model_base = data.model.toLowerCase();
+      // Normalize search terms
+      const make_norm = data.make.toLowerCase().trim();
+      const model_two = normalizeTwoWords(data.model);
+      const model_one = normalizeOneWord(data.model);
 
-      // 2. Get the price model (try model-specific, then make-specific, then global)
-      let priceModels: PriceModel[] | null = null;
-      const { data: initialModels } = await supabase
-        .from('price_models')
-        .select('*')
-        .eq('make_norm', make_norm)
-        .eq('model_base', model_base)
-        .limit(1);
-
-      if (!initialModels || initialModels.length === 0) {
-        const { data: makeModels } = await supabase
-          .from('price_models')
-          .select('*')
-          .eq('make_norm', make_norm)
-          .is('model_base', null)
-          .limit(1);
-
-        if (!makeModels || makeModels.length === 0) {
-          const { data: globalModel } = await supabase
-            .from('price_models')
-            .select('*')
-            .is('make_norm', null)
-            .is('model_base', null)
-            .limit(1);
-          
-          priceModels = globalModel;
-        } else {
-          priceModels = makeModels;
-        }
-      } else {
-        priceModels = initialModels;
-      }
-
-      if (!priceModels || priceModels.length === 0) {
+      // Choose a price model (try two-word, then one-word, then make-only, then global)
+      const priceModel = await pickPriceModel(make_norm, model_two, model_one);
+      if (!priceModel) {
         console.error('No price models found');
         return;
       }
 
-      const priceModel = priceModels[0];
-
-      // 3. Get similar car listings (⚠️ do NOT filter by year; let UI decide)
-      let similarCars: DbCarListing[] = [];
-      try {
-        const query = supabase
-          .from('car_listings')
-          .select('*')
-          .ilike('make', make_norm)
-          .ilike('model', `%${model_base}%`)
-          .not('year', 'is', null); // Only valid years
-
-        const { data: listings, error } = await query.order('scraped_at', { ascending: false });
-        if (error) console.error('Supabase query error:', error);
-
-        similarCars = (listings ?? []) as DbCarListing[];
-      } catch (error) {
-        console.error('Could not fetch similar listings:', error);
+      // Fetch listings: start with two-word; if too few, broaden to one-word
+      let similarCars = await fetchListings(make_norm, model_two);
+      const MIN_RESULTS = 20;     // threshold to broaden
+      if (similarCars.length < MIN_RESULTS && model_one && model_one !== model_two) {
+        const broader = await fetchListings(make_norm, model_one);
+        if (broader.length > similarCars.length) {
+          similarCars = broader;
+        }
       }
 
-      // 4. Calculate estimated price using the regression model
+      // Calculate estimated price using the regression model
       let price: number;
       if (data.year === 'all') {
         const validYears = similarCars
@@ -213,13 +241,13 @@ export default function Home() {
         return;
       }
 
-      // 5. Price range (±RMSE)
+      // Price range (±RMSE)
       const priceRange = {
         low: price - priceModel.rmse,
         high: price + priceModel.rmse
       };
 
-      // 6. Curves for years we have data for
+      // Curves for years we have data for
       const yearsWithData = [...new Set(similarCars.map((car) => car.year))];
       const kmRange: [number, number] = [0, 300000];
       const curves: { [year: string]: CarPricePoint[] } = {};
@@ -230,7 +258,7 @@ export default function Home() {
         }
       });
 
-      // 7. Format similar listings
+      // Format similar listings
       const similarListings: CarPricePoint[] = similarCars.map((car) => ({
         kilometers: car.kilometers,
         price: car.price,
@@ -239,7 +267,7 @@ export default function Home() {
         url: car.url
       }));
 
-      // 8. Target car point
+      // Target car point
       const targetCar: CarPricePoint = {
         kilometers: data.kilometers,
         price: data.price || price,
@@ -273,7 +301,7 @@ export default function Home() {
             onSearch={handleSearch}
             makes={makes}
           />
-          <CarDeals />
+          <CarDeals onViewPriceAnalysis={handleSearch} />
         </div>
         
         {analysis && (

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from 'recharts'
 import { CarAnalysis } from '@/types/car'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Select,
   SelectContent,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Maximize2, X } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 interface PriceAnalysisProps {
   analysis: CarAnalysis
@@ -38,6 +39,20 @@ interface CustomTooltipProps {
   formatPrice: (price: number) => string
 }
 
+type CoefJson = {
+  intercept: number
+  beta_age: number
+  beta_logkm: number
+  beta_age_logkm: number
+}
+
+type PriceModelLike = CarAnalysis['priceModel'] & {
+  make_norm?: string
+  model_base?: string
+  tier?: 'model_year' | 'model' | 'make' | 'global'
+  year?: number
+}
+
 const CustomTooltip = ({
   active,
   payload,
@@ -58,7 +73,6 @@ const CustomTooltip = ({
       className="relative transition-opacity duration-150 ease-out"
       style={{ zIndex: 80 }}
     >
-      {/* Transparent bridge to maintain hover */}
       <div
         className="absolute left-0 right-0"
         style={{
@@ -95,6 +109,19 @@ const CustomTooltip = ({
   )
 }
 
+/** Non-interactive red ring marker so underlying grey dot stays hover/clickable */
+type ScatterShapeProps = { cx?: number; cy?: number }
+const TargetRing: React.FC<ScatterShapeProps> = ({ cx, cy }) => {
+  if (cx == null || cy == null) return null
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {/* outer ring */}
+      <circle cx={cx} cy={cy} r={5} fill="none" stroke="#ef4444" strokeWidth={2} />
+      {/* tiny core to keep it visible even if center aligns perfectly */}
+    </g>
+  )
+}
+
 export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAnalysisProps) {
   const { targetCar, similarListings, priceCurves, estimatedPrice, priceRange, priceModel } =
     analysis
@@ -103,6 +130,78 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
   const [noYearData, setNoYearData] = useState(false)
+
+  // Per-year curve overrides (null = checked and not found; array = found curve)
+  const [yearCurveOverride, setYearCurveOverride] = useState<Record<number, PricePoint[] | null>>({})
+
+  const calcPriceFromCoef = (coef: CoefJson, year: number, km: number) => {
+    const currentYear = new Date().getFullYear()
+    const age = currentYear - year
+    const logkm = Math.log(1 + Math.max(0, km))
+    return (
+      coef.intercept +
+      coef.beta_age * age +
+      coef.beta_logkm * logkm +
+      coef.beta_age_logkm * (age * logkm)
+    )
+  }
+
+  const buildCurveFromCoef = (coef: CoefJson, year: number): PricePoint[] => {
+    const [minKm, maxKm] = [0, 300_000]
+    const points = 50
+    const step = (maxKm - minKm) / (points - 1)
+    const data: PricePoint[] = []
+    for (let i = 0; i < points; i++) {
+      const km = minKm + i * step
+      data.push({
+        kilometers: km,
+        price: calcPriceFromCoef(coef, year, km),
+        year: String(year),
+      })
+    }
+    return data
+  }
+
+  // Try to fetch a per-year model for the selected year and override the curve
+  useEffect(() => {
+    const pm = priceModel as PriceModelLike
+    if (!selectedYear || !pm?.make_norm || !pm?.model_base) return
+    if (Object.prototype.hasOwnProperty.call(yearCurveOverride, selectedYear)) return
+
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('price_models')
+        .select('coef_json')
+        .eq('tier', 'model_year')
+        .eq('make_norm', pm.make_norm!)
+        .eq('model_base', pm.model_base!)
+        .eq('year', selectedYear)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (error || !data || !data.coef_json) {
+        setYearCurveOverride((prev) => ({ ...prev, [selectedYear]: null }))
+        return
+      }
+
+      const raw = typeof data.coef_json === 'string' ? JSON.parse(data.coef_json) : data.coef_json
+      const coef: CoefJson = {
+        intercept: Number(raw.intercept ?? 0),
+        beta_age: Number(raw.beta_age ?? 0),
+        beta_logkm: Number(raw.beta_logkm ?? 0),
+        beta_age_logkm: Number(raw.beta_age_logkm ?? 0),
+      }
+
+      const curve = buildCurveFromCoef(coef, selectedYear)
+      setYearCurveOverride((prev) => ({ ...prev, [selectedYear]: curve }))
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedYear, priceModel, yearCurveOverride])
 
   // Build year options & choose a single default year
   useEffect(() => {
@@ -121,18 +220,18 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     setAvailableYears(years)
 
     if (years.length === 0) {
-      // no data at all
       setSelectedYear(null)
       setNoYearData(false)
       return
     }
 
-    // pick the year with the most cars
-    const yearWithMostResults = years.reduce((maxY, y) =>
-      yearCounts[y] > yearCounts[maxY] ? y : maxY
-    , years[0])
+    const yearWithMostResults = years.reduce(
+      (maxY, y) => (yearCounts[y] > yearCounts[maxY] ? y : maxY),
+      years[0]
+    )
 
-    const hasSearched = searchedYear && searchedYear !== 'all' && !Number.isNaN(parseInt(searchedYear))
+    const hasSearched =
+      searchedYear && searchedYear !== 'all' && !Number.isNaN(parseInt(searchedYear))
     if (hasSearched) {
       const y = parseInt(searchedYear as string)
       if (yearCounts[y] && yearCounts[y] > 0) {
@@ -140,18 +239,15 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
         setNoYearData(false)
         return
       }
-      // searched year has no cars -> fall back to most-cars year, show message
       setSelectedYear(yearWithMostResults)
       setNoYearData(true)
       return
     }
 
-    // 'all' or no search year -> default to the year with most results
     setSelectedYear(yearWithMostResults)
     setNoYearData(false)
   }, [similarListings, searchedYear])
 
-  // Prevent background scroll while expanded
   useEffect(() => {
     if (isExpanded) {
       const original = document.body.style.overflow
@@ -162,7 +258,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     }
   }, [isExpanded])
 
-  // Close on Esc
   const onKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') setIsExpanded(false)
   }, [])
@@ -182,14 +277,56 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
   }
 
   const getPriceAssessment = () => {
-    const priceDiff = ((targetCar.price - estimatedPrice) / estimatedPrice) * 100
+    const priceDiff = ((analysis.targetCar.price - estimatedPrice) / estimatedPrice) * 100
     if (priceDiff <= -10) return { text: 'Good Deal', color: 'text-green-600' }
     if (priceDiff >= 10) return { text: 'Expensive', color: 'text-red-600' }
     return { text: 'Fair Price', color: 'text-yellow-600' }
   }
   const assessment = getPriceAssessment()
 
-  // Chart (always shows only the selectedYear's data)
+  // Which tier powers the curve right now (badge)
+  const curveTier: 'model_year' | 'model' | 'make' | 'global' = useMemo(() => {
+    if (selectedYear && Array.isArray(yearCurveOverride[selectedYear])) return 'model_year'
+    const pm = priceModel as PriceModelLike
+    return (pm?.tier as any) || 'model'
+  }, [selectedYear, yearCurveOverride, priceModel])
+
+  const tierBadge = useMemo(() => {
+    const styles: Record<typeof curveTier, string> = {
+      model_year: 'bg-blue-50 text-blue-700 border-blue-200',
+      model: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      make: 'bg-amber-50 text-amber-700 border-amber-200',
+      global: 'bg-slate-50 text-slate-700 border-slate-200',
+    }
+    const labels: Record<typeof curveTier, string> = {
+      model_year: selectedYear ? `Using: ${selectedYear} model` : 'Using: Year-specific',
+      model: 'Using: Model',
+      make: 'Using: Make',
+      global: 'Using: Global',
+    }
+    return (
+      <span
+        className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${styles[curveTier]}`}
+        title={
+          curveTier === 'model_year'
+            ? 'Per-year model found for this make/model/year'
+            : 'Falling back to pooled model'
+        }
+      >
+        {labels[curveTier]}
+      </span>
+    )
+  }, [curveTier, selectedYear])
+
+  // Pick the current curve
+  const currentCurve: PricePoint[] | undefined = useMemo(() => {
+    if (!selectedYear) return undefined
+    const overr = yearCurveOverride[selectedYear]
+    if (Array.isArray(overr) && overr.length > 0) return overr
+    return (priceCurves as Record<string, PricePoint[]>)[String(selectedYear)]
+  }, [selectedYear, yearCurveOverride, priceCurves])
+
+  // Chart
   const ChartBlock = (heightClass: string) => (
     <div className={heightClass}>
       <ResponsiveContainer width="100%" height="100%">
@@ -226,13 +363,12 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
             wrapperStyle={{ zIndex: 80 }}
           />
 
-          {/* Similar listings (filter to selectedYear, always) */}
+          {/* Similar listings (filter to selectedYear) */}
           <Scatter
             name="Similar Cars"
             data={similarListings.filter((listing) => {
               if (listing.isTarget) return true
               const listingYear = listing.year ? parseInt(listing.year) : null
-              // If we have a selectedYear, only show that year; if not, show none (fallback).
               return selectedYear ? listingYear === selectedYear : false
             })}
             fill="#94a3b8"
@@ -244,41 +380,39 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
           />
 
           {/* Price curve — only for selectedYear */}
-          {Object.entries(priceCurves).map(([year, curve]) => {
-            if (!selectedYear || parseInt(year) !== selectedYear) return null
-            return (
-              <Scatter
-                key={year}
-                name={`Price Curve ${year}`}
-                data={curve as PricePoint[]}
-                fill="none"
-                line={{ stroke: '#2563eb', strokeWidth: 2, strokeOpacity: 1 }}
-                lineType="joint"
-              />
-            )
-          })}
+          {selectedYear && currentCurve && (
+            <Scatter
+              key={selectedYear}
+              name={`Price Curve ${selectedYear}`}
+              data={currentCurve}
+              fill="none"
+              line={{ stroke: '#2563eb', strokeWidth: 2, strokeOpacity: 1 }}
+              lineType="joint"
+            />
+          )}
 
-          {/* Target car */}
-          <Scatter name="Your Car" data={[targetCar as PricePoint]} fill="#ef4444" />
+          {/* Target car as a non-interactive ring so underlying grey stays clickable */}
+          <Scatter
+            name="Your Car"
+            data={[targetCar as PricePoint]}
+            shape={<TargetRing />}
+            isAnimationActive={false}
+          />
         </ScatterChart>
       </ResponsiveContainer>
     </div>
   )
 
-  // Inner card content (reused in both normal and expanded modes)
+  // Inner card content
   const CardInner = (isInOverlay: boolean) => {
     const modelQualitySpan = isInOverlay ? '' : 'col-span-2'
 
     return (
       <>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <div className="flex flex-col">
+          <div className="flex items-center">
             <CardTitle>Price Analysis</CardTitle>
-            {noYearData && (
-              <span className="mt-1 text-xs text-amber-600">
-                No cars for selected year found — Showing most populated year.
-              </span>
-            )}
+            {tierBadge}
           </div>
           <div className="flex items-center gap-2">
             <Select
@@ -337,10 +471,19 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
         <CardContent>
           <div className="space-y-6">
+            {noYearData && (
+              <p className="text-xs text-amber-600">
+                No cars for selected year found — Showing most populated year.
+              </p>
+            )}
+
             {ChartBlock(isInOverlay ? 'h-[75vh]' : 'h-[400px]')}
 
-            {/* Metrics grid: 2 cols normally, 3 cols in overlay so Model Quality can sit beside Assessment */}
-            <div className={`grid ${isInOverlay ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'} gap-4`}>
+            <div
+              className={`grid ${
+                isInOverlay ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'
+              } gap-4`}
+            >
               <div>
                 <h3 className="text-sm font-medium">Estimated Fair Price</h3>
                 <p className="text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
@@ -351,17 +494,17 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
               <div>
                 <h3 className="text-sm font-medium">Assessment</h3>
-                <p className={`text-2xl font-bold ${assessment.color}`}>
-                  {assessment.text}
+                <p className={`text-2xl font-bold ${assessment.color}`}>{assessment.text}</p>
+                <p className="text-sm text-gray-500">
+                  Based on {analysis.priceModel.n_samples} similar cars
                 </p>
-                <p className="text-sm text-gray-500">Based on {priceModel.n_samples} similar cars</p>
               </div>
 
               <div className={modelQualitySpan}>
                 <h3 className="text-sm font-medium">Model Quality</h3>
                 <p className="text-sm text-gray-500">
-                  R² Score: {(priceModel.r2 * 100).toFixed(1)}% • Average Error: ±
-                  {formatPrice(priceModel.rmse)}
+                  R² Score: {(analysis.priceModel.r2 * 100).toFixed(1)}% • Average Error: ±
+                  {formatPrice(analysis.priceModel.rmse)}
                 </p>
               </div>
             </div>
@@ -373,19 +516,14 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
   return (
     <>
-      {/* Normal inline card */}
       <Card>{CardInner(false)}</Card>
 
-      {/* Expanded overlay */}
       {isExpanded && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center"
           onClick={() => setIsExpanded(false)}
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/70" />
-
-          {/* Modal container (clicks here should NOT close) */}
           <div
             className="relative w-[95%] h-[90%] bg-white rounded-xl shadow-xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
