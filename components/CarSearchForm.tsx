@@ -16,9 +16,14 @@ import {
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
+interface MakeOption {
+  make_norm: string;
+  display_make: string;
+}
+
 interface CarSearchFormProps {
   onSearch: (data: CarItem) => void;
-  makes: string[];
+  makes: MakeOption[];
 }
 
 export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
@@ -54,10 +59,10 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
     // Get models from price_models first
     const { data: modelData, error: modelError } = await supabase
       .from('price_models')
-      .select('model_base')
+      .select('model_base, display_name')
       .eq('make_norm', make.toLowerCase())
       .not('model_base', 'is', null)
-      .order('model_base', { ascending: true });
+      .order('display_name', { ascending: true });
 
     if (modelError) {
       console.log('Error fetching models from price_models:', modelError);
@@ -65,12 +70,11 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
     }
 
     if (modelData && modelData.length > 0) {
-      // Capitalize first letter of each model
       const formattedModels = [
         ...new Set(
           modelData.map((item) => {
-            const model = item.model_base as string;
-            return model.charAt(0).toUpperCase() + model.slice(1);
+            // Use display_name if available, otherwise fallback to model_base
+            return item.display_name || item.model_base as string;
           })
         ),
       ];
@@ -118,8 +122,8 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
               <SelectContent>
                 <SelectGroup>
                   {makes.map((make) => (
-                    <SelectItem key={make} value={make}>
-                      {make}
+                    <SelectItem key={make.make_norm} value={make.make_norm}>
+                      {make.display_make}
                     </SelectItem>
                   ))}
                 </SelectGroup>

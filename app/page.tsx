@@ -39,7 +39,7 @@ const normalizeOneWord = (s: string) =>
 
 export default function Home() {
   const [analysis, setAnalysis] = useState<CarAnalysis | null>(null);
-  const [makes, setMakes] = useState<string[]>([]);
+  const [makes, setMakes] = useState<Array<{ make_norm: string; display_make: string }>>([]);
   const [searchedYear, setSearchedYear] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,9 +50,9 @@ export default function Home() {
     // Get makes from price_models first
     const { data: modelMakes, error: modelError } = await supabase
       .from('price_models')
-      .select('make_norm')
+      .select('make_norm, display_make')
       .not('make_norm', 'is', null)
-      .order('make_norm', { ascending: true });
+      .order('display_make', { ascending: true });
 
     if (modelError) {
       console.log('Error fetching makes from price_models:', modelError);
@@ -60,12 +60,15 @@ export default function Home() {
     }
 
     if (modelMakes && modelMakes.length > 0) {
-      // Capitalize first letter of each make
-      const formattedMakes = [...new Set(modelMakes.map(item => {
-        const make = item.make_norm as string;
-        return make.charAt(0).toUpperCase() + make.slice(1);
-      }))];
-      setMakes(formattedMakes);
+      // Create unique make entries with both normalized and display values
+      const uniqueMakes = [...new Set(modelMakes.map(item => item.make_norm))].map(make_norm => {
+        const entry = modelMakes.find(item => item.make_norm === make_norm);
+        return {
+          make_norm: make_norm,
+          display_make: entry?.display_make || make_norm.charAt(0).toUpperCase() + make_norm.slice(1)
+        };
+      });
+      setMakes(uniqueMakes);
     } else {
       // Fallback to car_listings if no makes found in price_models
       const { data: listingMakes, error: listingError } = await supabase
@@ -74,7 +77,13 @@ export default function Home() {
         .order('make', { ascending: true });
 
       if (!listingError && listingMakes) {
-        const uniqueMakes = [...new Set(listingMakes.map(item => item.make as string))];
+        const uniqueMakes = [...new Set(listingMakes.map(item => {
+          const make = item.make as string;
+          return {
+            make_norm: make.toLowerCase(),
+            display_make: make
+          };
+        }))];
         setMakes(uniqueMakes);
       }
     }
