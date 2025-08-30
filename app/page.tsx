@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { CarSearchForm } from '@/components/CarSearchForm';
 import { PriceAnalysis } from '@/components/PriceAnalysis';
 import { CarDeals } from '@/components/CarDeals';
+import { SimilarCarList } from '@/components/SimilarCarList';
 import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
@@ -52,7 +53,7 @@ export default function Home() {
       .select('make_norm')
       .not('make_norm', 'is', null)
       .order('make_norm', { ascending: true });
-    
+
     if (modelError) {
       console.log('Error fetching makes from price_models:', modelError);
       return;
@@ -71,7 +72,7 @@ export default function Home() {
         .from('car_listings')
         .select('make')
         .order('make', { ascending: true });
-      
+
       if (!listingError && listingMakes) {
         const uniqueMakes = [...new Set(listingMakes.map(item => item.make as string))];
         setMakes(uniqueMakes);
@@ -88,7 +89,7 @@ export default function Home() {
     try {
       const coefficients = typeof coefficientsJson === 'string' ? JSON.parse(coefficientsJson) : coefficientsJson;
       const currentYear = new Date().getFullYear();
-      
+
       if (year === null) return NaN;
       if (!year || isNaN(parseInt(year))) {
         console.error('Invalid year format:', year);
@@ -98,19 +99,19 @@ export default function Home() {
         console.error('Invalid kilometers value:', kilometers);
         return NaN;
       }
-      
+
       const age = currentYear - parseInt(year);
       const logKm = Math.log(1 + Math.max(0, kilometers));
-      
+
       if (!coefficients || typeof coefficients !== 'object') {
         console.error('Invalid coefficients:', coefficients);
         return NaN;
       }
-      
+
       return coefficients.intercept +
-           coefficients.beta_age * age +
-           coefficients.beta_logkm * logKm +
-           coefficients.beta_age_logkm * (age * logKm);
+        coefficients.beta_age * age +
+        coefficients.beta_logkm * logKm +
+        coefficients.beta_age_logkm * (age * logKm);
     } catch (error) {
       console.error('Error calculating price:', error);
       return NaN;
@@ -231,7 +232,7 @@ export default function Home() {
       } else {
         price = calculatePrice(priceModel.coef_json, data.year, data.kilometers);
       }
-      
+
       if (isNaN(price)) {
         console.error('Price calculation resulted in NaN:', {
           year: data.year,
@@ -294,39 +295,65 @@ export default function Home() {
   return (
     <main className="container mx-auto p-4">
       <h1 className="text-4xl font-bold mb-8 text-center">Car Price Analysis</h1>
-      
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <CarSearchForm 
+
+      <div className="flex flex-col lg:flex-row gap-8 min-h-[calc(100vh-8rem)]">
+        <div className="lg:w-1/2 space-y-4">
+          <CarSearchForm
             onSearch={handleSearch}
             makes={makes}
           />
           <CarDeals onViewPriceAnalysis={handleSearch} />
+          {analysis && (
+            <PriceAnalysis
+              analysis={analysis}
+              searchedYear={searchedYear}
+              onYearChange={(year) => {
+                if (analysis) {
+                  const price = calculatePrice(
+                    analysis.priceModel.coef_json,
+                    year.toString(),
+                    analysis.targetCar.kilometers
+                  );
+                  setAnalysis({
+                    ...analysis,
+                    estimatedPrice: price,
+                    priceRange: {
+                      low: price - analysis.priceModel.rmse,
+                      high: price + analysis.priceModel.rmse
+                    }
+                  });
+                }
+              }}
+            />
+          )}
         </div>
-        
-        {analysis && (
-          <PriceAnalysis 
-            analysis={analysis}
-            searchedYear={searchedYear}
-            onYearChange={(year) => {
-              if (analysis) {
-                const price = calculatePrice(
-                  analysis.priceModel.coef_json,
-                  year.toString(),
-                  analysis.targetCar.kilometers
-                );
-                setAnalysis({
-                  ...analysis,
-                  estimatedPrice: price,
-                  priceRange: {
-                    low: price - analysis.priceModel.rmse,
-                    high: price + analysis.priceModel.rmse
-                  }
-                });
-              }
-            }}
-          />
-        )}
+
+        <div className="lg:w-1/2 h-full">
+          {analysis && (
+            <SimilarCarList
+              analysis={analysis}
+              searchedYear={searchedYear}
+              onYearChange={(year) => {
+                if (analysis) {
+                  const price = calculatePrice(
+                    analysis.priceModel.coef_json,
+                    year.toString(),
+                    analysis.targetCar.kilometers
+                  );
+                  setAnalysis({
+                    ...analysis,
+                    estimatedPrice: price,
+                    priceRange: {
+                      low: price - analysis.priceModel.rmse,
+                      high: price + analysis.priceModel.rmse
+                    }
+                  });
+                }
+              }}
+            />
+          )}
+        </div>
+
       </div>
     </main>
   );

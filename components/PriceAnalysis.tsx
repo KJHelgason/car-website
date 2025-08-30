@@ -60,7 +60,12 @@ const CustomTooltip = ({
   onMouseEnter,
   onMouseLeave,
   formatPrice,
-}: CustomTooltipProps) => {
+  selectedYear,
+  currentCurve,
+}: CustomTooltipProps & {
+  selectedYear: number | null
+  currentCurve: PricePoint[] | undefined
+}) => {
   if (!active && !isHovering) return null
   if (!payload || payload.length === 0) return null
 
@@ -104,6 +109,22 @@ const CustomTooltip = ({
         <p>{`Driven: ${Math.round(data.kilometers).toLocaleString()} km`}</p>
         <p>{`Price: ${formatPrice(Math.round(data.price))}`}</p>
         {data.year && <p>{`Year: ${data.year}`}</p>}
+        {selectedYear && currentCurve && !data.isTarget && (
+          <p className="mt-1 text-sm text-gray-600">
+            {(() => {
+              const expectedPrice = currentCurve.find(
+                point => Math.abs(point.kilometers - data.kilometers) < 5000
+              )?.price
+              if (!expectedPrice) return null
+              const diff = ((expectedPrice - data.price) / expectedPrice) * 100
+              return (
+                <span className={diff > 0 ? "text-green-600" : "text-red-600"}>
+                  {Math.abs(diff).toFixed(1)}% {diff > 0 ? 'below' : 'above'} estimate
+                </span>
+              )
+            })()}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -133,6 +154,9 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
   const [noYearData, setNoYearData] = useState(false)
+  const [isZooming, setIsZooming] = useState(false)
+  const [xDomain, setXDomain] = useState<[number, number] | null>(null)
+  const [zoomDomain, setZoomDomain] = useState<{ start: number | null; end: number | null }>({ start: null, end: null })
 
   // Per-year curve overrides (null = checked and not found; array = found curve)
   const [yearCurveOverride, setYearCurveOverride] = useState<Record<number, PricePoint[] | null>>({})
@@ -371,6 +395,8 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
                   onMouseEnter={() => setIsTooltipHovering(true)}
                   onMouseLeave={() => setIsTooltipHovering(false)}
                   formatPrice={formatPrice}
+                  selectedYear={selectedYear}
+                  currentCurve={currentCurve}
                 />
               </div>
             )}
@@ -384,13 +410,30 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
               if (listing.isTarget) return true
               const listingYear = listing.year ? parseInt(listing.year) : null
               return selectedYear ? listingYear === selectedYear : false
-            })}
+            }).map(listing => ({
+              ...listing,
+              kilometers: listing.kilometers || 0
+            }))}
             fill="#94a3b8"
             opacity={0.6}
             onClick={(point: PricePoint) => {
               if (point?.url) window.open(point.url, '_blank', 'noopener,noreferrer')
             }}
             style={{ cursor: 'pointer' }}
+            onMouseOver={(state) => {
+              const target = state?.currentTarget as SVGCircleElement | null;
+              if (target) {
+                target.style.fill = '#64748b';
+                target.style.opacity = '1';
+              }
+            }}
+            onMouseOut={(state) => {
+              const target = state?.currentTarget as SVGCircleElement | null;
+              if (target) {
+                target.style.fill = '#94a3b8';
+                target.style.opacity = '0.6';
+              }
+            }}
           />
 
           {/* Price curve — only for selectedYear */}
@@ -406,12 +449,14 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
           )}
 
           {/* Target car as non-interactive ring so underlying grey stays clickable */}
-          <Scatter
-            name="Your Car"
-            data={[targetCar as PricePoint]}
-            shape={<TargetRing />}
-            isAnimationActive={false}
-          />
+          {targetCar.price && targetCar.kilometers && (
+            <Scatter
+              name="Your Car"
+              data={[targetCar as PricePoint]}
+              shape={<TargetRing />}
+              isAnimationActive={false}
+            />
+          )}
         </ScatterChart>
       </ResponsiveContainer>
     </div>
@@ -492,27 +537,49 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
             )}
 
             {ChartBlock(isInOverlay ? 'h-[75vh]' : 'h-[400px]')}
+            {isInOverlay && (
+              <div className="mt-2 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setXDomain(null)}
+                  className={xDomain ? 'opacity-100' : 'opacity-0'}
+                >
+                  Reset Zoom
+                </Button>
+              </div>
+            )}
 
             <div
               className={`grid ${
                 isInOverlay ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'
               } gap-4`}
             >
-              <div>
-                <h3 className="text-sm font-medium">Estimated Fair Price</h3>
-                <p className="text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
-                <p className="text-sm text-gray-500">
-                  Range: {formatPrice(priceRange.low)} - {formatPrice(priceRange.high)}
-                </p>
-              </div>
+              {targetCar.price && targetCar.kilometers ? (
+                <>
+                  <div>
+                    <h3 className="text-sm font-medium">Estimated Fair Price</h3>
+                    <p className="text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
+                    <p className="text-sm text-gray-500">
+                      Range: {formatPrice(priceRange.low)} - {formatPrice(priceRange.high)}
+                    </p>
+                  </div>
 
-              <div>
-                <h3 className="text-sm font-medium">Assessment</h3>
-                <p className={`text-2xl font-bold ${assessment.color}`}>{assessment.text}</p>
-                <p className="text-sm text-gray-500">
-                  Based on {analysis.priceModel.n_samples} similar cars
-                </p>
-              </div>
+                  <div>
+                    <h3 className="text-sm font-medium">Assessment</h3>
+                    <p className={`text-2xl font-bold ${assessment.color}`}>{assessment.text}</p>
+                    <p className="text-sm text-gray-500">
+                      Based on {analysis.priceModel.n_samples} similar cars
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-2">
+                  <p className="text-sm text-gray-500">
+                    Price and mileage required for value assessment
+                  </p>
+                </div>
+              )}
 
               <div className={modelQualitySpan}>
                 <h3 className="text-sm font-medium">Model Quality</h3>
@@ -530,7 +597,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
   return (
     <>
-      <Card>{CardInner(false)}</Card>
+      <Card className="h-fit">{CardInner(false)}</Card>
 
       {isExpanded && (
         <div
