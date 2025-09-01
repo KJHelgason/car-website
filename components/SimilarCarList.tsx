@@ -7,10 +7,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CarAnalysis } from '@/types/car';
 import { Button } from '@/components/ui/button';
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+type CoefJson = {
+  intercept: number;
+  beta_age: number;
+  beta_logkm: number;
+  beta_age_logkm: number;
+};
+
+type PriceModelLike = CarAnalysis['priceModel'] & {
+  make_norm?: string;
+  model_base?: string;
+  tier?: 'model_year' | 'model' | 'make' | 'global';
+  year?: number;
+};
 
 type ExtendedCarPricePoint = {
   kilometers: number;
@@ -19,11 +34,9 @@ type ExtendedCarPricePoint = {
   url?: string;
   year?: string;
   isTarget?: boolean;
+  /** +% below estimate (positive = deal), negative = above estimate */
   priceDifference?: number;
-  searchPrice?: number;
-  isCurve?: boolean;
-  yearRange?: string;
-}
+};
 
 interface SimilarCarListProps {
   analysis: CarAnalysis;
@@ -31,114 +44,164 @@ interface SimilarCarListProps {
   searchedYear?: string | null;
 }
 
+// ---- helpers ----
+const parseCoef = (raw: unknown): CoefJson | null => {
+  if (!raw) return null;
+  const cj = typeof raw === 'string' ? JSON.parse(raw) : (raw as Partial<CoefJson>);
+  return {
+    intercept: Number((cj as CoefJson).intercept ?? 0),
+    beta_age: Number((cj as CoefJson).beta_age ?? 0),
+    beta_logkm: Number((cj as CoefJson).beta_logkm ?? 0),
+    beta_age_logkm: Number((cj as CoefJson).beta_age_logkm ?? 0),
+  };
+};
+
+const estimateFromCoef = (coef: CoefJson, yearNum: number, km: number): number => {
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - yearNum;
+  const logkm = Math.log(1 + Math.max(0, km));
+  return (
+    coef.intercept +
+    coef.beta_age * age +
+    coef.beta_logkm * logkm +
+    coef.beta_age_logkm * (age * logkm)
+  );
+};
+
 export function SimilarCarList({ analysis, onYearChange, searchedYear }: SimilarCarListProps) {
-  const { similarListings } = analysis;
+  const { similarListings, priceModel } = analysis;
+
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
-  const [filteredListings, setFilteredListings] = useState<ExtendedCarPricePoint[]>([]);
   const [sortBy, setSortBy] = useState<'value' | 'price'>('value');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [displayLimit, setDisplayLimit] = useState(10);
 
-  // Format price for display
-  const formatPrice = (price: number) => {
-    if (!price || isNaN(price)) return 'N/A';
-    return new Intl.NumberFormat('is-IS', {
-      style: 'currency',
-      currency: 'ISK',
-      maximumFractionDigits: 0
-    }).format(price);
-  };
+  // Cache per-year coefficients so we only fetch once per year
+  const [coefCache, setCoefCache] = useState<Record<number, CoefJson | null>>({});
 
-  // Get available years from similar listings and count cars per year
+  // Base pooled coefficients (model → make → global) come with the analysis.priceModel
+  const baseCoef: CoefJson | null = useMemo(
+    () => parseCoef((priceModel as unknown as { coef_json?: unknown })?.coef_json),
+    [priceModel]
+  );
+
+  // Build year options & choose default year (most cars; respect searchedYear when available)
   useEffect(() => {
-    // Count cars per year
     const yearCounts = similarListings.reduce((acc, listing) => {
       if (listing.year) {
-        const year = parseInt(listing.year);
-        acc[year] = (acc[year] || 0) + 1;
+        const y = parseInt(listing.year);
+        if (!Number.isNaN(y)) acc[y] = (acc[y] || 0) + 1;
       }
       return acc;
     }, {} as Record<number, number>);
 
-    // Get unique years and sort by year (descending)
-    const years = Object.entries(yearCounts)
-      .sort(([yearA, countA], [yearB, countB]) => {
-        return parseInt(yearB) - parseInt(yearA); // Sort by year descending
-      })
-      .map(([year]) => parseInt(year));
+    const years = Object.keys(yearCounts)
+      .map((y) => parseInt(y))
+      .filter((y) => !Number.isNaN(y))
+      .sort((a, b) => b - a);
 
     setAvailableYears(years);
-    
-    // Find the year with the most results
-    if (years.length > 0) {
-      const yearWithMostResults = Object.entries(yearCounts)
-        .reduce((max, [year, count]) => {
-          if (count > yearCounts[max]) {
-            return parseInt(year);
-          }
-          return max;
-        }, years[0]);
-      setSelectedYear(yearWithMostResults);
-    }
-  }, [similarListings]);
 
-  // Filter and sort listings when year changes
+    if (years.length === 0) {
+      setSelectedYear(null);
+      return;
+    }
+
+    const yearWithMostResults = years.reduce((maxY, y) => (yearCounts[y] > yearCounts[maxY] ? y : maxY), years[0]);
+
+    const hasSearched = searchedYear && searchedYear !== 'all' && !Number.isNaN(parseInt(searchedYear));
+    if (hasSearched) {
+      const y = parseInt(searchedYear as string);
+      if (yearCounts[y] && yearCounts[y] > 0) {
+        setSelectedYear(y);
+        return;
+      }
+    }
+    setSelectedYear(yearWithMostResults);
+  }, [similarListings, searchedYear]);
+
+  // Fetch per-year coefficients for selected year (model_year) if possible; cache result
   useEffect(() => {
-    let filtered: ExtendedCarPricePoint[] = [...similarListings].map(listing => ({ ...listing }));
+    const pm = priceModel as PriceModelLike;
+    if (!selectedYear || !pm?.make_norm || !pm?.model_base) return;
+    if (Object.prototype.hasOwnProperty.call(coefCache, selectedYear)) return;
 
-    // Filter by selected year if any
-    if (selectedYear) {
-      filtered = filtered.filter(listing => {
-        const listingYear = listing.year ? parseInt(listing.year) : null;
-        return listingYear === selectedYear;
-      });
-    }
+    let canceled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('price_models')
+        .select('coef_json')
+        .eq('tier', 'model_year')
+        .eq('make_norm', pm.make_norm!)
+        .eq('model_base', pm.model_base!)
+        .eq('year', selectedYear)
+        .maybeSingle();
 
-    // Calculate price differences based on the regression model for each car
-    filtered = filtered.map(listing => {
-      if (!listing.year || !analysis.priceModel.coef_json || !listing.kilometers) {
-        return { ...listing, priceDifference: 0 } as ExtendedCarPricePoint;
+      if (canceled) return;
+
+      if (error || !data?.coef_json) {
+        setCoefCache((prev) => ({ ...prev, [selectedYear]: null }));
+        return;
       }
 
-      // Calculate expected price for this specific car using the regression model
-      const coefficients = typeof analysis.priceModel.coef_json === 'string' 
-        ? JSON.parse(analysis.priceModel.coef_json) 
-        : analysis.priceModel.coef_json;
-      
-      const currentYear = new Date().getFullYear();
-      const age = currentYear - parseInt(listing.year);
-      const logKm = Math.log(1 + Math.max(0, listing.kilometers));
-      
-      const expectedPrice = coefficients.intercept +
-        coefficients.beta_age * age +
-        coefficients.beta_logkm * logKm +
-        coefficients.beta_age_logkm * (age * logKm);
+      const parsed = parseCoef(data.coef_json);
+      setCoefCache((prev) => ({ ...prev, [selectedYear]: parsed }));
+    })();
 
-      // Calculate how much cheaper/more expensive this car is compared to its expected price
-      const priceDiff = expectedPrice ? ((expectedPrice - listing.price) / expectedPrice) * 100 : 0;
-      
-      return {
-        ...listing,
-        priceDifference: priceDiff
-      };
-    }) as ExtendedCarPricePoint[];
-    
-    // Sort based on current sort settings
-    filtered.sort((a, b) => {
-      const multiplier = sortOrder === 'desc' ? 1 : -1;
-      
-      if (sortBy === 'value') {
-        return ((b.priceDifference || 0) - (a.priceDifference || 0)) * multiplier;
-      } else {
-        return (b.price - a.price) * multiplier;
+    return () => {
+      canceled = true;
+    };
+  }, [selectedYear, priceModel, coefCache]);
+
+  // Compute filtered + scored list using the unified formula and best-available coefficients
+  const filteredListings: ExtendedCarPricePoint[] = useMemo(() => {
+    const list: ExtendedCarPricePoint[] = similarListings
+      .filter((l) => {
+        if (!selectedYear) return true;
+        const ly = l.year ? parseInt(l.year) : NaN;
+        return !Number.isNaN(ly) && ly === selectedYear;
+      })
+      .map((l) => ({ ...l }));
+
+    // pick coef for this year, fallback to base
+    const yearCoef = selectedYear ? coefCache[selectedYear] : null;
+    const coef = yearCoef ?? baseCoef;
+
+    const scored = list.map((l) => {
+      const yNum = l.year ? parseInt(l.year) : NaN;
+      if (!coef || Number.isNaN(yNum) || typeof l.kilometers !== 'number' || typeof l.price !== 'number') {
+        return { ...l, priceDifference: undefined } as ExtendedCarPricePoint;
       }
+      const est = estimateFromCoef(coef, yNum, l.kilometers);
+      if (!Number.isFinite(est) || est <= 0) return { ...l, priceDifference: undefined } as ExtendedCarPricePoint;
+      const pct = ((est - l.price) / est) * 100; // positive => below estimate (deal)
+      return { ...l, priceDifference: pct } as ExtendedCarPricePoint;
     });
 
-    setFilteredListings(filtered);
-    // Reset display limit when filters change
-    setDisplayLimit(10);
-  }, [selectedYear, similarListings, analysis.estimatedPrice, sortBy, sortOrder, analysis.priceModel.coef_json]);
+    const sorted = scored.sort((a, b) => {
+      const mult = sortOrder === 'desc' ? 1 : -1;
+      if (sortBy === 'value') {
+        const av = a.priceDifference ?? -Infinity;
+        const bv = b.priceDifference ?? -Infinity;
+        return (bv - av) * mult;
+      }
+      // sort by price
+      return ((b.price ?? 0) - (a.price ?? 0)) * mult;
+    });
+
+    return sorted;
+  }, [similarListings, selectedYear, coefCache, baseCoef, sortBy, sortOrder]);
+
+  // Format price
+  const formatPrice = (price: number) => {
+    if (!price || Number.isNaN(price)) return 'N/A';
+    return new Intl.NumberFormat('is-IS', {
+      style: 'currency',
+      currency: 'ISK',
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
 
   return (
     <Card className="w-full h-full flex flex-col">
@@ -151,7 +214,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
               size="sm"
               onClick={() => {
                 if (sortBy === 'value') {
-                  setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
                 } else {
                   setSortBy('value');
                   setSortOrder('desc');
@@ -172,7 +235,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
               size="sm"
               onClick={() => {
                 if (sortBy === 'price') {
-                  setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
                 } else {
                   setSortBy('price');
                   setSortOrder('desc');
@@ -190,14 +253,14 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
             </Button>
           </div>
         </div>
+
         <Select
           value={selectedYear?.toString()}
           onValueChange={(value) => {
             const newYear = parseInt(value);
             setSelectedYear(newYear);
-            if (onYearChange) {
-              onYearChange(newYear);
-            }
+            setDisplayLimit(10);
+            onYearChange?.(newYear);
           }}
         >
           <SelectTrigger className="w-[180px]">
@@ -206,12 +269,11 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
           <SelectContent>
             <SelectGroup>
               {availableYears.map((year) => {
-                // Count cars for this year
-                const count = similarListings.filter(listing => {
-                  const listingYear = listing.year ? parseInt(listing.year) : null;
-                  return listingYear === year;
+                const count = similarListings.filter((listing) => {
+                  const ly = listing.year ? parseInt(listing.year) : NaN;
+                  return !Number.isNaN(ly) && ly === year;
                 }).length;
-                
+
                 return (
                   <SelectItem key={year} value={year.toString()}>
                     {year} <span className="font-bold">({count})</span>
@@ -222,31 +284,33 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
           </SelectContent>
         </Select>
       </CardHeader>
+
       <CardContent className="flex-1 overflow-auto">
         <div className="space-y-4 pr-2">
-          {filteredListings.slice(0, displayLimit).map((car, index) => (
-            <Card key={index} className="hover:bg-gray-50">
+          {filteredListings.slice(0, displayLimit).map((car, idx) => (
+            <Card key={`${car.url ?? car.name ?? 'car'}-${idx}`} className="hover:bg-gray-50">
               <CardContent className="p-4">
                 <div className="flex justify-between items-start gap-4">
                   <div>
                     <h4 className="font-semibold">{car.name}</h4>
                     <p className="text-sm text-gray-600">
-                      {car.kilometers ? car.kilometers.toLocaleString() : 'Unknown'} km
+                      {typeof car.kilometers === 'number' ? car.kilometers.toLocaleString() : 'Unknown'} km
                     </p>
+                    {car.year && <p className="text-xs text-gray-500">Year: {car.year}</p>}
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-lg">{formatPrice(car.price)}</p>
-                    {car.priceDifference !== undefined && (
-                      <p className={car.priceDifference > 0 ? "text-sm text-green-600" : "text-sm text-red-600"}>
+                    {typeof car.priceDifference === 'number' && (
+                      <p className={car.priceDifference > 0 ? 'text-sm text-green-600' : 'text-sm text-red-600'}>
                         {Math.abs(car.priceDifference).toFixed(1)}% {car.priceDifference > 0 ? 'below' : 'above'} estimate
                       </p>
                     )}
                   </div>
                 </div>
                 {car.url && (
-                  <a 
-                    href={car.url} 
-                    target="_blank" 
+                  <a
+                    href={car.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-blue-600 hover:underline block mt-2"
                   >
@@ -256,12 +320,12 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
               </CardContent>
             </Card>
           ))}
-          
+
           {filteredListings.length > displayLimit && (
             <div className="flex justify-center pt-2">
-              <Button 
+              <Button
                 variant="outline"
-                onClick={() => setDisplayLimit(prev => prev + 10)}
+                onClick={() => setDisplayLimit((prev) => prev + 10)}
                 className="w-full"
               >
                 Show More ({filteredListings.length - displayLimit} remaining)

@@ -128,11 +128,16 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
       if (modelError) throw modelError;
 
       // Index pooled models for instant lookup
-      const modelMap = new Map<string, PriceModelRow>();  // model tier
-      const makeMap = new Map<string, PriceModelRow>();   // make tier
+      // Build maps after fetching price_models
+      const perYearMap = new Map<string, PriceModelRow>();
+      const modelMap = new Map<string, PriceModelRow>();
+      const makeMap = new Map<string, PriceModelRow>();
       let globalModel: PriceModelRow | undefined;
+
       (priceModels ?? []).forEach((pm: PriceModelRow) => {
-        if (pm.tier === 'model' && pm.make_norm && pm.model_base) {
+        if (pm.tier === 'model_year' && pm.make_norm && pm.model_base && pm.year != null) {
+          perYearMap.set(`${pm.make_norm}|${pm.model_base}|${pm.year}`, pm);
+        } else if (pm.tier === 'model' && pm.make_norm && pm.model_base) {
           modelMap.set(`${pm.make_norm}|${pm.model_base}`, pm);
         } else if (pm.tier === 'make' && pm.make_norm && !pm.model_base) {
           makeMap.set(pm.make_norm, pm);
@@ -141,9 +146,13 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
         }
       });
 
-      const findBestModel = (make: string, model: string): PriceModelRow | undefined => {
+      const findBestModel = (make: string, model: string, year?: number): PriceModelRow | undefined => {
         const mk = make.toLowerCase();
-        const mdBase = toModelBase(model);
+        const mdBase = toModelBase(model); // now 2 words
+        if (typeof year === 'number') {
+          const hit = perYearMap.get(`${mk}|${mdBase}|${year}`);
+          if (hit) return hit;
+        }
         return modelMap.get(`${mk}|${mdBase}`) || makeMap.get(mk) || globalModel;
       };
 
@@ -171,14 +180,14 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
             typeof car.kilometers === 'number'
           )
           .map((car): EnrichedDeal => {
-            const pooled = findBestModel(car.make, car.model);
+            const pooled = findBestModel(car.make, car.model, car.year ?? undefined);
             if (!pooled?.coef_json) return { ...car };
 
-            let estimated = calculatePrice(pooled.coef_json, car.year.toString(), car.kilometers);
-            estimated = Math.max(estimated, car.price * 0.1); // guard
+            const estimated = calculatePrice(pooled.coef_json, car.year.toString(), car.kilometers); // no clamp
+            const pct = ((estimated - car.price) / estimated) * 100;
 
             const diff = estimated - car.price;
-            const pct = (diff / estimated) * 100;
+            //const pct = (diff / estimated) * 100;
             const rmse = pooled.rmse ?? null;
             const n = pooled.n_samples ?? null;
             const z = rmse && rmse > 0 ? diff / rmse : 0;
