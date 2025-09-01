@@ -8,6 +8,12 @@ import { SimilarCarList } from '@/components/SimilarCarList';
 import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
+import { DailyDeals } from '@/components/DailyDeals';
+
+// Tips system + button
+import { TipsSystem } from '@/components/ui/tips';
+import { TipsButton } from '@/components/ui/tipsbutton';
+import '@/app/tips.css';
 
 // Minimal shape we read from Supabase for car_listings
 interface DbCarListing {
@@ -303,7 +309,15 @@ export default function Home() {
 
   return (
     <main className="container mx-auto p-4">
-      <h1 className="text-4xl font-bold mb-8 text-center">Car Price Analysis</h1>
+      {/* Mount tips system once so it can show on first visit & be reopened by the button */}
+      <TipsSystem />
+
+      <h1 className="text-4xl font-bold mb-4 text-center">Car Price Analysis</h1>
+
+      {/* Centered Tips button right below the title */}
+      <div className="mb-8 flex justify-center">
+        <TipsButton resetSeen />
+      </div>
 
       <div className="flex flex-col lg:flex-row gap-8 min-h-[calc(100vh-8rem)]">
         <div className="lg:w-1/2 space-y-4">
@@ -311,7 +325,7 @@ export default function Home() {
             onSearch={handleSearch}
             makes={makes}
           />
-          <CarDeals onViewPriceAnalysis={handleSearch} />
+          
           {analysis && (
             <PriceAnalysis
               analysis={analysis}
@@ -337,7 +351,9 @@ export default function Home() {
           )}
         </div>
 
-        <div className="lg:w-1/2 h-full">
+        <div className="lg:w-1/2 h-full space-y-4">
+          <DailyDeals onViewPriceAnalysis={handleSearch} />
+          <CarDeals onViewPriceAnalysis={handleSearch} />
           {analysis && (
             <SimilarCarList
               analysis={analysis}

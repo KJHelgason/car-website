@@ -16,6 +16,10 @@ import {
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
+// ⬇️ Tips system + CSS (adjust import path if your file lives elsewhere)
+//import { TipsSystem } from '@/components/ui/tips';
+//import '@/app/tips.css';
+
 interface MakeOption {
   make_norm: string;
   display_make: string;
@@ -40,8 +44,8 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
       make: '',
       model: '',
       year: 'all',
-      kilometers: 0,
-      price: undefined,
+      kilometers: 0,     // optional semantically; 0 means “not specified”
+      price: undefined,  // truly optional
     },
   });
 
@@ -49,14 +53,15 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
 
   useEffect(() => {
     if (selectedMake) {
-      fetchModels(selectedMake);
+      void fetchModels(selectedMake);
     } else {
       setModels([]);
+      setValue('model', '');
     }
-  }, [selectedMake]);
+  }, [selectedMake, setValue]);
 
   const fetchModels = async (make: string) => {
-    // Get models from price_models first
+    // Prefer curated models from price_models
     const { data: modelData, error: modelError } = await supabase
       .from('price_models')
       .select('model_base, display_name')
@@ -72,27 +77,23 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
     if (modelData && modelData.length > 0) {
       const formattedModels = [
         ...new Set(
-          modelData.map((item) => {
-            // Use display_name if available, otherwise fallback to model_base
-            return item.display_name || item.model_base as string;
-          })
+          modelData.map((item) => (item.display_name || item.model_base) as string)
         ),
       ];
       setModels(formattedModels);
-    } else {
-      // Fallback to car_listings if no models found in price_models
-      const { data: listingModels, error: listingError } = await supabase
-        .from('car_listings')
-        .select('model')
-        .eq('make', make)
-        .order('model', { ascending: true });
+      return;
+    }
 
-      if (!listingError && listingModels) {
-        const uniqueModels = [
-          ...new Set(listingModels.map((item) => item.model as string)),
-        ];
-        setModels(uniqueModels);
-      }
+    // Fallback to car_listings if nothing in price_models
+    const { data: listingModels, error: listingError } = await supabase
+      .from('car_listings')
+      .select('model')
+      .eq('make', make)
+      .order('model', { ascending: true });
+
+    if (!listingError && listingModels) {
+      const uniqueModels = [...new Set(listingModels.map((item) => item.model as string))];
+      setModels(uniqueModels);
     }
   };
 
@@ -102,21 +103,24 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+      {/* First-time user guide */}
+      {/* <TipsSystem /> */}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="make" className="mb-2">
+          <div id="make">
+            <Label htmlFor="make-select" className="mb-2">
               Car Make
             </Label>
+            {/* shadcn Select is controlled via value/onValueChange; RHF gets the value via hidden input below */}
             <Select
-              {...register('make', { required: true })}
               value={watch('make')}
               onValueChange={(value) => {
-                setValue('make', value);
-                setValue('model', ''); // Reset model when make changes
+                setValue('make', value, { shouldValidate: true, shouldDirty: true });
+                setValue('model', '', { shouldDirty: true, shouldValidate: true });
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="make-select" className="w-full">
                 <SelectValue placeholder="Select Make" />
               </SelectTrigger>
               <SelectContent>
@@ -129,21 +133,23 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            {errors.make && (
-              <span className="text-red-500">This field is required</span>
-            )}
+            {/* Hidden input so RHF can validate 'make' as required */}
+            <input type="hidden" {...register('make', { required: true })} value={watch('make') || ''} />
+            {errors.make && <span className="text-red-500">This field is required</span>}
           </div>
 
-          <div>
-            <Label htmlFor="model" className="mb-2">
+          <div id="model">
+            <Label htmlFor="model-select" className="mb-2">
               Car Model
             </Label>
             <Select
               disabled={!selectedMake}
               value={watch('model')}
-              onValueChange={(value: string) => setValue('model', value)}
+              onValueChange={(value: string) =>
+                setValue('model', value, { shouldValidate: true, shouldDirty: true })
+              }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="model-select" className="w-full">
                 <SelectValue placeholder="Select Model" />
               </SelectTrigger>
               <SelectContent>
@@ -156,32 +162,28 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            {errors.model && (
-              <span className="text-red-500">This field is required</span>
-            )}
+            {/* Hidden input so RHF can validate 'model' as required */}
+            <input type="hidden" {...register('model', { required: true })} value={watch('model') || ''} />
+            {errors.model && <span className="text-red-500">This field is required</span>}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="year" className="mb-2">
-              Year
+          <div id="year">
+            <Label htmlFor="year-select" className="mb-2">
+              Year <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>
             <Select
-              {...register('year')}
               value={watch('year')}
-              onValueChange={(value) => setValue('year', value)}
+              onValueChange={(value) => setValue('year', value, { shouldDirty: true })}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="year-select" className="w-full">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="all">All Years</SelectItem>
-                  {Array.from(
-                    { length: 26 },
-                    (_, i) => new Date().getFullYear() - i
-                  ).map((year) => (
+                  {Array.from({ length: 26 }, (_, i) => new Date().getFullYear() - i).map((year) => (
                     <SelectItem key={year} value={year.toString()}>
                       {year}
                     </SelectItem>
@@ -189,115 +191,103 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            {/* Hidden input keeps 'year' in the RHF form state */}
+            <input type="hidden" {...register('year')} value={watch('year') || 'all'} />
           </div>
 
           <div>
             <Label htmlFor="kilometers" className="mb-2">
-              Kilometers
+              Kilometers <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>
             <div className="relative">
               <Input
+                id="kilometers"
                 type="text"
                 inputMode="numeric"
+                placeholder="e.g., 125 000"
+                aria-describedby="km-help"
                 {...register('kilometers', {
-                  required: true,
-                  validate: (value) =>
-                    !isNaN(
-                      parseInt(value?.toString().replace(/[.,]/g, ''))
-                    ) && parseInt(value?.toString().replace(/[.,]/g, '')) >= 0,
+                  // optional: allow empty; when empty we submit 0
+                  validate: (value) => {
+                    const raw = String(value ?? '').trim();
+                    if (raw === '' || raw === '0') return true;
+                    const n = parseInt(raw.replace(/[.,\s]/g, ''), 10);
+                    return !isNaN(n) && n >= 0;
+                  },
                   onChange: (e) => {
-                    // Remove any non-digit characters
                     const value = e.target.value.replace(/[^0-9]/g, '');
-                    // Format with dots for thousands
                     if (value) {
-                      const num = parseInt(value);
-                      if (!isNaN(num)) {
-                        e.target.value = num.toLocaleString('is-IS');
-                      }
+                      const num = parseInt(value, 10);
+                      if (!isNaN(num)) e.target.value = num.toLocaleString('is-IS');
                     } else {
                       e.target.value = '';
                     }
                   },
                   setValueAs: (value) => {
-                    // Convert the formatted string back to a number, handling both dots and commas
-                    return parseInt(
-                      value?.toString().replace(/[.,]/g, '') || '0'
-                    );
+                    const raw = value?.toString().replace(/[.,\s]/g, '');
+                    if (!raw) return 0;
+                    const n = parseInt(raw, 10);
+                    return isNaN(n) ? 0 : n;
                   },
                 })}
                 className="pr-8"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                km
-              </span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">km</span>
             </div>
-            {errors.kilometers && (
-              <span className="text-red-500">
-                Please enter a valid mileage!
-              </span>
-            )}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="price" className="mb-2">
-              Price (Optional)
+          <div id="price">
+            <Label htmlFor="price-input" className="mb-2">
+              Price <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>
             <div className="relative">
               <Input
+                id="price-input"
                 type="text"
                 inputMode="numeric"
+                placeholder="e.g., 3 450 000"
+                aria-describedby="price-help"
                 {...register('price', {
                   min: 0,
                   validate: (value) => {
-                    // allow empty, otherwise must be a valid non-negative integer
-                    if (
-                      value === undefined ||
-                      value === null //||
-                      //value === ''
-                    ) {
-                      return true;
-                    }
-                    const n = parseInt(value.toString().replace(/[.,]/g, ''));
+                    if (value === undefined || value === null) return true; // optional
+                    const n = parseInt(String(value).replace(/[.,\s]/g, ''), 10);
                     return !isNaN(n) && n >= 0;
                   },
                   onChange: (e) => {
                     const raw = e.target.value.replace(/[^0-9]/g, '');
                     if (raw) {
-                      const num = parseInt(raw);
-                      if (!isNaN(num)) {
-                        e.target.value = num.toLocaleString('is-IS');
-                      }
+                      const num = parseInt(raw, 10);
+                      if (!isNaN(num)) e.target.value = num.toLocaleString('is-IS');
                     } else {
                       e.target.value = '';
                     }
                   },
                   setValueAs: (value) => {
-                    // map formatted string to number; keep undefined if empty to satisfy optional field
-                    const raw = value?.toString().replace(/[.,]/g, '');
+                    const raw = value?.toString().replace(/[.,\s]/g, '');
                     if (!raw) return undefined;
-                    const n = parseInt(raw);
+                    const n = parseInt(raw, 10);
                     return isNaN(n) ? undefined : n;
                   },
                 })}
                 className="pr-12"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                ISK
-              </span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">ISK</span>
             </div>
-            {errors.price && (
-              <span className="text-red-500">Please enter a valid price</span>
-            )}
+            {errors.price && <span className="text-red-500">Please enter a valid price</span>}
           </div>
-          <div>
-            <Label htmlFor="price" className="mb-2">
+
+          <div id="submit">
+            <Label htmlFor="submit-btn" className="mb-2">
               Submit
             </Label>
-            <Button type="submit" className="w-full">
-              Analyze Price
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" className="w-full" id="submit-btn">
+                Analyze Price
+              </Button>
+            </div>
           </div>
         </div>
       </form>
