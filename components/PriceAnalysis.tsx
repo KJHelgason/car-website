@@ -28,6 +28,7 @@ interface PricePoint {
   url?: string
   year?: string
   isTarget?: boolean
+  /** raw km from listing; used to compute percent accurately */
   kmRaw?: number | null
 }
 
@@ -38,7 +39,7 @@ interface CustomTooltipProps {
   onMouseEnter: () => void
   onMouseLeave: () => void
   formatPrice: (price: number) => string
-  // NEW: pooled model consistency props
+  // pooled model consistency props
   pooledCoef: CoefJson | null
   calcPriceFromCoef: (coef: CoefJson, year: number, km: number) => number
 }
@@ -71,19 +72,18 @@ const CustomTooltip = ({
   if (!payload || payload.length === 0) return null
 
   const data = payload[0].payload
-  const hasValidKm = typeof data.kmRaw === 'number' && isFinite(data.kmRaw) && data.kmRaw > 0;
-  const listingYear = data.year ? parseInt(data.year) : undefined;
+  const hasValidKm = typeof data.kmRaw === 'number' && Number.isFinite(data.kmRaw) && data.kmRaw > 0
+  const listingYear = data.year ? parseInt(data.year) : undefined
 
   const expectedPrice =
     pooledCoef && !data.isTarget && listingYear && hasValidKm
       ? calcPriceFromCoef(pooledCoef, listingYear, data.kmRaw!)
-      : null;
+      : null
 
   const pct =
     expectedPrice && expectedPrice > 0
       ? ((expectedPrice - data.price) / expectedPrice) * 100
-      : null;
-
+      : null
 
   return (
     <div
@@ -166,7 +166,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     {}
   )
 
-  // --- Canonical estimator used across the app (same as other components) ---
+  // Canonical estimator used across the app (same as other components)
   const calcPriceFromCoef = useCallback((coef: CoefJson, year: number, km: number) => {
     const currentYear = new Date().getFullYear()
     const age = currentYear - year
@@ -222,40 +222,55 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     if (!selectedYear || !pm?.make_norm || !pm?.model_base) return
     if (Object.prototype.hasOwnProperty.call(yearCurveOverride, selectedYear)) return
 
+    type PriceModelYearRow = {
+      coef_json: string | CoefJson | null
+      n_samples: number | string | null
+    }
+
     let cancelled = false
-      ; (async () => {
-        const { data, error } = await supabase
-          .from('price_models')
-          .select('coef_json, n_samples')
-          .eq('tier', 'model_year')
-          .eq('make_norm', pm.make_norm!)
-          .eq('model_base', pm.model_base!)
-          .eq('year', selectedYear)
-          .maybeSingle()
+    ;(async () => {
+      const resp = await supabase
+        .from('price_models')
+        .select('coef_json, n_samples')
+        .eq('tier', 'model_year')
+        .eq('make_norm', pm.make_norm!)
+        .eq('model_base', pm.model_base!)
+        .eq('year', selectedYear)
+        .maybeSingle()
 
-        if (cancelled) return
+      if (cancelled) return
 
-        if (error || !data || !data.coef_json) {
-          setYearCurveOverride((prev) => ({ ...prev, [selectedYear]: null }))
-          return
-        }
+      const data = (resp?.data ?? null) as PriceModelYearRow | null
+      const error = resp?.error ?? null
 
-        const raw = typeof data.coef_json === 'string' ? JSON.parse(data.coef_json) : data.coef_json
-        const coef: CoefJson = {
-          intercept: Number(raw.intercept ?? 0),
-          beta_age: Number(raw.beta_age ?? 0),
-          beta_logkm: Number(raw.beta_logkm ?? 0),
-          beta_age_logkm: Number(raw.beta_age_logkm ?? 0),
-        }
+      if (error || !data || !data.coef_json) {
+        setYearCurveOverride((prev) => ({ ...prev, [selectedYear]: null }))
+        return
+      }
 
-        const curve = buildCurveFromCoef(coef, selectedYear)
-        setYearCurveOverride((prev) => ({ ...prev, [selectedYear]: curve }))
-        const nSamples = Number((data as any).n_samples);
-        setYearModelNSamples((prev) => ({
-          ...prev,
-          [selectedYear]: Number.isFinite(nSamples) ? nSamples : null,
-        }));
-      })()
+      const raw = typeof data.coef_json === 'string' ? JSON.parse(data.coef_json) : data.coef_json
+      const coef: CoefJson = {
+        intercept: Number(raw.intercept ?? 0),
+        beta_age: Number(raw.beta_age ?? 0),
+        beta_logkm: Number(raw.beta_logkm ?? 0),
+        beta_age_logkm: Number(raw.beta_age_logkm ?? 0),
+      }
+
+      const curve = buildCurveFromCoef(coef, selectedYear)
+      setYearCurveOverride((prev) => ({ ...prev, [selectedYear]: curve }))
+
+      // Safely coerce n_samples without using `any`
+      let nSamples: number | null = null
+      if (data && typeof data.n_samples !== 'undefined' && data.n_samples !== null) {
+        const parsed =
+          typeof data.n_samples === 'string' ? parseFloat(data.n_samples) : data.n_samples
+        nSamples = Number.isFinite(parsed) ? parsed : null
+      }
+      setYearModelNSamples((prev) => ({
+        ...prev,
+        [selectedYear]: nSamples,
+      }))
+    })()
 
     return () => {
       cancelled = true
@@ -343,7 +358,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     if (priceDiff >= 10) return { text: 'Expensive', color: 'text-red-600' }
     return { text: 'Fair Price', color: 'text-yellow-600' }
   }
-  const assessment = getPriceAssessment()
 
   // Which tier powers the curve right now (badge)
   const curveTier: 'model_year' | 'model' | 'make' | 'global' = useMemo(() => {
@@ -397,7 +411,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     // Fall back to the pooled model used in analysis
     return analysis.priceModel.n_samples
   }, [selectedYear, yearCurveOverride, yearModelNSamples, analysis.priceModel.n_samples])
-
 
   // Chart
   const ChartBlock = (heightClass: string) => (
@@ -490,7 +503,12 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
           {/* Target car as non-interactive ring so underlying grey stays clickable */}
           {targetCar.price && targetCar.kilometers && (
-            <Scatter name="Your Car" data={[targetCar as PricePoint]} shape={<TargetRing />} isAnimationActive={false} />
+            <Scatter
+              name="Your Car"
+              data={[targetCar as PricePoint]}
+              shape={<TargetRing />}
+              isAnimationActive={false}
+            />
           )}
         </ScatterChart>
       </ResponsiveContainer>
@@ -574,8 +592,9 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
             {ChartBlock(isInOverlay ? 'h-[75vh]' : 'h-[400px]')}
 
             <div
-              className={`grid ${isInOverlay ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'
-                } gap-4`}
+              className={`grid ${
+                isInOverlay ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'
+              } gap-4`}
             >
               {targetCar.price && targetCar.kilometers ? (
                 <>
@@ -589,16 +608,19 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
                   <div>
                     <h3 className="text-sm font-medium">Assessment</h3>
-                    <p className={`text-2xl font-bold ${getPriceAssessment().color}`}>{getPriceAssessment().text}</p>
+                    <p className={`text-2xl font-bold ${getPriceAssessment().color}`}>
+                      {getPriceAssessment().text}
+                    </p>
                     <p className="text-sm text-gray-500">
                       Based on {displayedNSamples.toLocaleString()} similar cars
                     </p>
-
                   </div>
                 </>
               ) : (
                 <div className="col-span-2">
-                  <p className="text-sm text-gray-500">Price and mileage required for value assessment</p>
+                  <p className="text-sm text-gray-500">
+                    Price and mileage required for value assessment
+                  </p>
                 </div>
               )}
 
@@ -621,13 +643,18 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
       <Card className="h-fit">{CardInner(false)}</Card>
 
       {isExpanded && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center" onClick={() => setIsExpanded(false)}>
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center"
+          onClick={() => setIsExpanded(false)}
+        >
           <div className="absolute inset-0 bg-black/70" />
           <div
             className="relative w-[95%] h-[90%] bg-white rounded-xl shadow-xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <Card className="border-none shadow-none flex-1 overflow-hidden">{CardInner(true)}</Card>
+            <Card className="border-none shadow-none flex-1 overflow-hidden">
+              {CardInner(true)}
+            </Card>
           </div>
         </div>
       )}
