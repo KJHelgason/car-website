@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -63,16 +63,44 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
   const [cheapestCars, setCheapestCars] = useState<CarDeal[]>([]);
   const [bestDeals, setBestDeals] = useState<EnrichedWithEstimate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [preloaded, setPreloaded] = useState(false);
 
   // NEW: cache timestamp + TTL
   const [lastLoadedAt, setLastLoadedAt] = useState<number | null>(null);
   const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  // Preload data after initial render
+  useEffect(() => {
+    const preloadData = async () => {
+      // Don't preload if we already have fresh data
+      if (hasFreshCache || preloaded) return;
+      
+      // Small delay to ensure critical page content loads first
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      try {
+        await fetchDeals();
+        setPreloaded(true);
+      } catch (error) {
+        console.error('Error preloading deals:', error);
+      }
+    };
+
+    preloadData();
+  }, []);
 
   const now = Date.now();
   const hasFreshCache =
     lastLoadedAt !== null &&
     now - lastLoadedAt < CACHE_TTL_MS &&
     (bestDeals.length > 0 || cheapestCars.length > 0);
+
+  // Prevent auto-showing dialog when preloading
+  useEffect(() => {
+    if (bestDeals.length > 0 || cheapestCars.length > 0) {
+      setIsLoading(false);
+    }
+  }, [bestDeals.length, cheapestCars.length]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('is-IS', { style: 'currency', currency: 'ISK', maximumFractionDigits: 0 }).format(price);
@@ -99,11 +127,12 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
 
   // Open handler (uses cache unless force=true or stale)
   const openDeals = async (force = false) => {
-    if (!force && hasFreshCache) {
+    if (!force && (hasFreshCache || preloaded)) {
       setShowDeals(true);
       return;
     }
-    await fetchDeals(); // will open dialog when done
+    setShowDeals(true); // Show dialog immediately with loading state
+    await fetchDeals();
   };
 
   const fetchDeals = async () => {
@@ -264,7 +293,6 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
       setCheapestCars((cheapestData ?? []) as CarDeal[]);
       setBestDeals(withYearNs);
       setLastLoadedAt(Date.now());      // <-- cache timestamp
-      setShowDeals(true);
     } catch (error) {
       console.error('Error fetching deals:', error);
     } finally {
@@ -279,11 +307,10 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
   return (
     <>
       <Button
-        variant="outline"
         onClick={() => openDeals(false)}
         className="w-full"
       >
-        {isLoading ? 'Loading Deals...' : hasFreshCache ? 'Open Deals' : 'Find Deals'}
+        Find More Deals
       </Button>
 
       <Dialog open={showDeals} onOpenChange={setShowDeals}>

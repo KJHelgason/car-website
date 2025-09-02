@@ -195,7 +195,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
             <input type="hidden" {...register('year')} value={watch('year') || 'all'} />
           </div>
 
-          <div>
+          <div id="kilometers">
             <Label htmlFor="kilometers" className="mb-2">
               Kilometers <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>

@@ -312,15 +312,15 @@ export default function Home() {
       {/* Mount tips system once so it can show on first visit & be reopened by the button */}
       <TipsSystem />
 
-      <h1 className="text-4xl font-bold mb-4 text-center">Car Price Analysis</h1>
+      <h1 className="text-4xl font-bold mb-4 text-center">Car Price Scout  <TipsButton resetSeen /></h1>
 
       {/* Centered Tips button right below the title */}
-      <div className="mb-8 flex justify-center">
+      {/*<div className="mb-4 flex justify-center">
         <TipsButton resetSeen />
-      </div>
+      </div>*/}
 
       <div className="flex flex-col lg:flex-row gap-8 min-h-[calc(100vh-8rem)]">
-        <div className="lg:w-1/2 space-y-4">
+        <div className="lg:w-1/2 space-y-4 lg:basis-1/2 lg:flex-shrink-0">
           <CarSearchForm
             onSearch={handleSearch}
             makes={makes}
@@ -351,7 +351,7 @@ export default function Home() {
           )}
         </div>
 
-        <div className="lg:w-1/2 h-full space-y-4">
+        <div className="lg:w-1/2 h-full space-y-4 lg:basis-1/2 lg:flex-shrink-0">
           <DailyDeals onViewPriceAnalysis={handleSearch} />
           <CarDeals onViewPriceAnalysis={handleSearch} />
           {analysis && (

@@ -30,7 +30,7 @@ const tips: Tip[] = [
     highlight: '#make, #model',
   },
   {
-    title: 'Step 2: Choose Year (Optional)',
+    title: 'Step 2: Choose Year',
     content:
       "You can filter by year to see cars of a specific age, or leave it as 'All Years' to see the full market range.",
     highlight: '#year',
