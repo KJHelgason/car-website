@@ -5,10 +5,13 @@ import { CarSearchForm } from '@/components/CarSearchForm';
 import { PriceAnalysis } from '@/components/PriceAnalysis';
 import { CarDeals } from '@/components/CarDeals';
 import { SimilarCarList } from '@/components/SimilarCarList';
+import { CarListSearch } from '@/components/CarListSearch';
+import { SearchToggle } from '@/components/SearchToggle';
 import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 import { DailyDeals } from '@/components/DailyDeals';
+import { Persistent } from '@/components/Persistent';
 
 // Tips system + button
 import { TipsSystem } from '@/components/ui/tips';
@@ -47,6 +50,7 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<CarAnalysis | null>(null);
   const [makes, setMakes] = useState<Array<{ make_norm: string; display_make: string }>>([]);
   const [searchedYear, setSearchedYear] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<'analysis' | 'range'>('analysis');
 
   useEffect(() => {
     fetchMakes();
@@ -312,74 +316,107 @@ export default function Home() {
       {/* Mount tips system once so it can show on first visit & be reopened by the button */}
       <TipsSystem />
 
-      <h1 className="text-4xl font-bold mb-4 text-center">Car Price Scout  <TipsButton resetSeen /></h1>
+      <h1 className="text-4xl font-bold mb-4 text-center">Car Price Scout</h1>
 
-      {/* Centered Tips button right below the title */}
-      {/*<div className="mb-4 flex justify-center">
-        <TipsButton resetSeen />
-      </div>*/}
+      <div className={`flex flex-col ${searchMode === 'analysis' ? 'lg:flex-row' : ''} gap-4 min-h-[calc(100vh-8rem)] w-full`}>
+        {searchMode === "analysis" ? (
+          <>
+            {/* Analysis Mode: Two Column Layout */}
+            <div className="lg:w-1/2 lg:basis-1/2">
+              <div className="flex justify-between items-stretch w-full gap-4 mb-4">
+                <SearchToggle mode={searchMode} onModeChange={setSearchMode} />
+                <TipsButton
+                  resetSeen
+                  className="shrink-0 px-4 h-[42px]"
+                  variant="outline"
+                />
+              </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 min-h-[calc(100vh-8rem)]">
-        <div className="lg:w-1/2 space-y-4 lg:basis-1/2 lg:flex-shrink-0">
-          <CarSearchForm
-            onSearch={handleSearch}
-            makes={makes}
-          />
-          
-          {analysis && (
-            <PriceAnalysis
-              analysis={analysis}
-              searchedYear={searchedYear}
-              onYearChange={(year) => {
-                if (analysis) {
-                  const price = calculatePrice(
-                    analysis.priceModel.coef_json,
-                    year.toString(),
-                    analysis.targetCar.kilometers
-                  );
-                  setAnalysis({
-                    ...analysis,
-                    estimatedPrice: price,
-                    priceRange: {
-                      low: price - analysis.priceModel.rmse,
-                      high: price + analysis.priceModel.rmse
-                    }
-                  });
-                }
-              }}
-            />
-          )}
-        </div>
+              <CarSearchForm onSearch={handleSearch} makes={makes} />
 
-        <div className="lg:w-1/2 h-full space-y-4 lg:basis-1/2 lg:flex-shrink-0">
-          <DailyDeals onViewPriceAnalysis={handleSearch} />
-          <CarDeals onViewPriceAnalysis={handleSearch} />
-          {analysis && (
-            <SimilarCarList
-              analysis={analysis}
-              searchedYear={searchedYear}
-              onYearChange={(year) => {
-                if (analysis) {
-                  const price = calculatePrice(
-                    analysis.priceModel.coef_json,
-                    year.toString(),
-                    analysis.targetCar.kilometers
-                  );
-                  setAnalysis({
-                    ...analysis,
-                    estimatedPrice: price,
-                    priceRange: {
-                      low: price - analysis.priceModel.rmse,
-                      high: price + analysis.priceModel.rmse
-                    }
-                  });
-                }
-              }}
-            />
-          )}
-        </div>
+              {analysis && (
+                <PriceAnalysis
+                  analysis={analysis}
+                  searchedYear={searchedYear}
+                  onYearChange={(year) => {
+                    const price = calculatePrice(
+                      analysis.priceModel.coef_json,
+                      year.toString(),
+                      analysis.targetCar.kilometers
+                    );
+                    setAnalysis({
+                      ...analysis,
+                      estimatedPrice: price,
+                      priceRange: {
+                        low: price - analysis.priceModel.rmse,
+                        high: price + analysis.priceModel.rmse,
+                      },
+                    });
+                  }}
+                />
+              )}
+            </div>
 
+            <div className="lg:w-1/2 lg:basis-1/2 space-y-4 h-full">
+              <CarDeals onViewPriceAnalysis={handleSearch} />
+              <DailyDeals onViewPriceAnalysis={handleSearch} />
+              {analysis && (
+                <SimilarCarList
+                  analysis={analysis}
+                  searchedYear={searchedYear}
+                  onYearChange={(year) => {
+                    const price = calculatePrice(
+                      analysis.priceModel.coef_json,
+                      year.toString(),
+                      analysis.targetCar.kilometers
+                    );
+                    setAnalysis({
+                      ...analysis,
+                      estimatedPrice: price,
+                      priceRange: {
+                        low: price - analysis.priceModel.rmse,
+                        high: price + analysis.priceModel.rmse,
+                      },
+                    });
+                  }}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Range Mode: Top Split Layout */}
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              <div className="lg:w-1/2 lg:basis-1/2">
+                <div className="flex justify-between items-stretch w-full gap-4">
+                  <SearchToggle mode={searchMode} onModeChange={setSearchMode} />
+                  <TipsButton
+                    resetSeen
+                    className="shrink-0 px-4 h-[42px]"
+                    variant="outline"
+                  />
+                </div>
+              </div>
+
+              <div className="lg:w-1/2 lg:basis-1/2">
+                <CarDeals onViewPriceAnalysis={handleSearch} />
+              </div>
+            </div>
+
+            {/* Search Section: Full Width */}
+            <div className="w-full">
+              <CarListSearch 
+                makes={makes} 
+                onViewPriceAnalysis={(data) => {
+                  setSearchMode('analysis');
+                  handleSearch(data);
+                }} 
+              />
+            </div>
+          </>
+        )}
       </div>
     </main>
   );
+
 }

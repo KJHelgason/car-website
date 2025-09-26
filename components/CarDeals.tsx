@@ -308,7 +308,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
     <>
       <Button
         onClick={() => openDeals(false)}
-        className="w-full"
+        className="w-full h-[42px]"
       >
         Find More Deals
       </Button>
