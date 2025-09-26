@@ -196,7 +196,7 @@ export function DailyDeals({
   );
 
   return (
-    <Card className="w-full h-full">
+    <Card className="w-full h-full gap-2 py-2">
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="flex items-center">
           <CardTitle>Daily Deals</CardTitle>
@@ -269,7 +269,7 @@ export function DailyDeals({
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="mt-10.5 flex items-center justify-between gap-2">
                     {d.url ? (
                       <a
                         href={d.url}
@@ -336,7 +336,7 @@ export function DailyDeals({
 
         {/* Dots */}
         {hasDeals && (
-          <div className="mt-3 flex justify-center gap-2">
+          <div className="mb-2 mt-4 flex justify-center gap-2">
             {deals.map((_, i) => (
               <button
                 key={i}

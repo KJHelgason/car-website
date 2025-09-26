@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { ArrowDownAZ, ArrowUpAZ, ArrowDownNarrowWide, ArrowUpNarrowWide, Calendar } from 'lucide-react';
 import type { CarItem } from '@/types/form';
 
 interface CarListItem {
@@ -25,22 +26,207 @@ interface FullCarListProps {
 export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullCarListProps) {
     const PAGE_SIZE = 50;
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    type SortField = 'name' | 'price' | 'km' | 'year' | 'date';
+    type SortConfig = { field: SortField; order: 'asc' | 'desc' };
+    const [activeSorts, setActiveSorts] = useState<SortConfig[]>([
+        { field: 'date', order: 'desc' }
+    ]);
+
+    // Reset pagination when sorts change
+    useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [activeSorts]);
 
     const handleLoadMore = () => {
         setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, listings.length));
     };
 
-    const visibleListings = listings.slice(0, visibleCount);
+    const compareByField = (a: CarListItem, b: CarListItem, field: SortField, order: 'asc' | 'desc'): number => {
+        const mult = order === 'desc' ? 1 : -1;
+        
+        switch (field) {
+            case 'price':
+                return (b.price - a.price) * mult;
+            case 'km':
+                const aKm = a.kilometers ?? Infinity;
+                const bKm = b.kilometers ?? Infinity;
+                return (bKm - aKm) * mult;
+            case 'year':
+                const aYear = parseInt(a.year.toString());
+                const bYear = parseInt(b.year.toString());
+                return (bYear - aYear) * mult;
+            case 'date':
+                const aDate = a.scraped_at ? new Date(a.scraped_at).getTime() : 0;
+                const bDate = b.scraped_at ? new Date(b.scraped_at).getTime() : 0;
+                return (bDate - aDate) * mult;
+            case 'name':
+                const aName = `${a.make} ${a.model}`.toLowerCase();
+                const bName = `${b.make} ${b.model}`.toLowerCase();
+                return aName.localeCompare(bName) * mult;
+            default:
+                return 0;
+        }
+    };
+
+    const sortedListings = [...listings].sort((a, b) => {
+        for (const sort of activeSorts) {
+            const result = compareByField(a, b, sort.field, sort.order);
+            if (result !== 0) return result;
+        }
+        return 0;
+    });
+
+    const visibleListings = sortedListings.slice(0, visibleCount);
 
     return (
         <Card className="p-6 w-full">
             <div className="space-y-4">
                 {/* Header */}
-                <div className="flex justify-between items-center">
-                    <Label className="text-lg font-semibold">Search Results</Label>
-                    <span className="text-sm text-gray-500">
-                        Showing {Math.min(visibleCount, totalCount || listings.length)} of {totalCount || listings.length} results
-                    </span>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Label className="text-lg font-semibold mr-2">Search Results</Label>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const existingIndex = activeSorts.findIndex(s => s.field === 'year');
+                                if (existingIndex === -1) {
+                                    setActiveSorts(prev => [{ field: 'year', order: 'desc' }, ...prev]);
+                                } else if (activeSorts[existingIndex].order === 'desc') {
+                                    setActiveSorts(prev => 
+                                        prev.map((s, i) => i === existingIndex ? { ...s, order: 'asc' } : s)
+                                    );
+                                } else {
+                                    setActiveSorts(prev => prev.filter(s => s.field !== 'year'));
+                                }
+                            }}
+                            className={`px-2 ${activeSorts.some(s => s.field === 'year') ? 'bg-blue-50' : ''}`}
+                        >
+                            <span>Year</span>
+                            {activeSorts.some(s => s.field === 'year') && (
+                                <span className="ml-1">
+                                    {activeSorts.find(s => s.field === 'year')?.order === 'desc' ? '↓' : '↑'}
+                                    {activeSorts.findIndex(s => s.field === 'year') + 1}
+                                </span>
+                            )}
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const existingIndex = activeSorts.findIndex(s => s.field === 'price');
+                                if (existingIndex === -1) {
+                                    setActiveSorts(prev => [...prev, { field: 'price', order: 'desc' }]);
+                                } else if (activeSorts[existingIndex].order === 'desc') {
+                                    setActiveSorts(prev => 
+                                        prev.map((s, i) => i === existingIndex ? { ...s, order: 'asc' } : s)
+                                    );
+                                } else {
+                                    setActiveSorts(prev => prev.filter(s => s.field !== 'price'));
+                                }
+                            }}
+                            className={`px-2 ${activeSorts.some(s => s.field === 'price') ? 'bg-blue-50' : ''}`}
+                        >
+                            {activeSorts.some(s => s.field === 'price') ? (
+                                activeSorts.find(s => s.field === 'price')?.order === 'desc' ? (
+                                    <ArrowDownNarrowWide className="h-4 w-4" />
+                                ) : (
+                                    <ArrowUpNarrowWide className="h-4 w-4" />
+                                )
+                            ) : (
+                                <ArrowUpNarrowWide className="h-4 w-4" />
+                            )}
+                            <span className="ml-2">Price {activeSorts.findIndex(s => s.field === 'price') + 1 || ''}</span>
+                        </Button>
+                        
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const existingIndex = activeSorts.findIndex(s => s.field === 'km');
+                                if (existingIndex === -1) {
+                                    setActiveSorts(prev => [...prev, { field: 'km', order: 'desc' }]);
+                                } else if (activeSorts[existingIndex].order === 'desc') {
+                                    setActiveSorts(prev => 
+                                        prev.map((s, i) => i === existingIndex ? { ...s, order: 'asc' } : s)
+                                    );
+                                } else {
+                                    setActiveSorts(prev => prev.filter(s => s.field !== 'km'));
+                                }
+                            }}
+                            className={`px-2 ${activeSorts.some(s => s.field === 'km') ? 'bg-blue-50' : ''}`}
+                        >
+                            <span>KM</span>
+                            {activeSorts.some(s => s.field === 'km') && (
+                                <span className="ml-1">
+                                    {activeSorts.find(s => s.field === 'km')?.order === 'desc' ? '↓' : '↑'}
+                                    {activeSorts.findIndex(s => s.field === 'km') + 1}
+                                </span>
+                            )}
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const existingIndex = activeSorts.findIndex(s => s.field === 'name');
+                                if (existingIndex === -1) {
+                                    setActiveSorts(prev => [...prev, { field: 'name', order: 'asc' }]);
+                                } else if (activeSorts[existingIndex].order === 'asc') {
+                                    setActiveSorts(prev => 
+                                        prev.map((s, i) => i === existingIndex ? { ...s, order: 'desc' } : s)
+                                    );
+                                } else {
+                                    setActiveSorts(prev => prev.filter(s => s.field !== 'name'));
+                                }
+                            }}
+                            className={`px-2 ${activeSorts.some(s => s.field === 'name') ? 'bg-blue-50' : ''}`}
+                        >
+                            {activeSorts.some(s => s.field === 'name') ? (
+                                activeSorts.find(s => s.field === 'name')?.order === 'desc' ? (
+                                    <ArrowDownAZ className="h-4 w-4" />
+                                ) : (
+                                    <ArrowUpAZ className="h-4 w-4" />
+                                )
+                            ) : (
+                                <ArrowUpAZ className="h-4 w-4" />
+                            )}
+                            <span className="ml-2">Name {activeSorts.findIndex(s => s.field === 'name') + 1 || ''}</span>
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const existingIndex = activeSorts.findIndex(s => s.field === 'date');
+                                if (existingIndex === -1) {
+                                    setActiveSorts(prev => [...prev, { field: 'date', order: 'desc' }]);
+                                } else if (activeSorts[existingIndex].order === 'desc') {
+                                    setActiveSorts(prev => 
+                                        prev.map((s, i) => i === existingIndex ? { ...s, order: 'asc' } : s)
+                                    );
+                                } else {
+                                    setActiveSorts(prev => prev.filter(s => s.field !== 'date'));
+                                }
+                            }}
+                            className={`px-2 ${activeSorts.some(s => s.field === 'date') ? 'bg-blue-50' : ''}`}
+                        >
+                            <Calendar className="h-4 w-4" />
+                            {activeSorts.some(s => s.field === 'date') && (
+                                <span className="ml-1">
+                                    {activeSorts.find(s => s.field === 'date')?.order === 'desc' ? '↓' : '↑'}
+                                    {activeSorts.findIndex(s => s.field === 'date') + 1}
+                                </span>
+                            )}
+                        </Button>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">
+                            Showing {Math.min(visibleCount, totalCount || listings.length)} of {totalCount || listings.length} results
+                        </span>
+                    </div>
                 </div>
 
                 {/* Grid of listings */}
