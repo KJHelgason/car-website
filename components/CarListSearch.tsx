@@ -29,9 +29,10 @@ interface CarListingResult {
 interface Props {
     makes: Array<{ make_norm: string; display_make: string }>;
     onViewPriceAnalysis?: (data: CarItem) => void;
+    onSearchStateChange?: (hasResults: boolean) => void;
 }
 
-export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
+export function CarListSearch({ makes, onViewPriceAnalysis, onSearchStateChange }: Props) {
     const [results, setResults] = useState<CarListingResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [models, setModels] = useState<string[]>([]);
@@ -75,13 +76,15 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
 
             if (error) throw error;
 
-            if (reset) {
-                setResults(data as CarListingResult[]);
-            } else {
-                setResults(prev => [...prev, ...(data as CarListingResult[])]);
-            }
-
+            const newResults = reset ? 
+                (data as CarListingResult[]) : 
+                [...results, ...(data as CarListingResult[])];
+            
+            setResults(newResults);
             setTotalCount(count || 0);
+            
+            // Notify parent about search results
+            onSearchStateChange?.(newResults.length > 0);
         } catch (error) {
             console.error('Error fetching results:', error);
             if (reset) setResults([]);
@@ -133,7 +136,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
                     {/* Make and Model Section */}
                     <div className="grid grid-cols-2 gap-4">
                         {/* Make */}
-                        <div className="space-y-2">
+                        <div id="make" className="space-y-2">
                             <Label htmlFor="make-select">Car Make</Label>
                             <Select
                                 value={filters.make || "~"}
@@ -158,7 +161,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
                         </div>
 
                         {/* Model */}
-                        <div className="space-y-2">
+                        <div id="model" className="space-y-2">
                             <Label htmlFor="model-select">Car Model</Label>
                             <Select
                                 disabled={!filters.make}
@@ -185,7 +188,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
                     </div>
 
                     {/* Year Range Section */}
-                    <div className="space-y-2">
+                    <div id="year" className="space-y-2">
                         <Label>Year Range</Label>
                         <div className="flex gap-2">
                             <Select
@@ -237,7 +240,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
                     </div>
 
                     {/* Kilometers Range Section */}
-                    <div className="space-y-2">
+                    <div id="km-range" className="space-y-2">
                         <Label>Kilometers Range</Label>
                         <div className="flex gap-2">
                             <Select
@@ -285,7 +288,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
                     </div>
 
                     {/* Price Range Section */}
-                    <div className="space-y-2">
+                    <div id="price-range" className="space-y-2">
                         <Label>Price Range (ISK)</Label>
                         <div className="flex gap-2">
                             <Select
@@ -335,6 +338,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis }: Props) {
 
                 <div className="flex justify-center">
                     <Button
+                        id="submit"
                         onClick={() => fetchResults(true)}
                         disabled={loading}
                         className="w-full md:w-auto"

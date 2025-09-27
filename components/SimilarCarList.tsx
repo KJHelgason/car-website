@@ -204,7 +204,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
   };
 
   return (
-    <Card className="w-full h-full flex flex-col">
+    <Card id="similar-cars" className="w-full h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
           <CardTitle>Similar Cars</CardTitle>

@@ -627,7 +627,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
               <div className={modelQualitySpan}>
                 <h3 className="text-sm font-medium">Model Quality</h3>
                 <p className="text-sm text-gray-500">
-                  R² Score: {(analysis.priceModel.r2 * 100).toFixed(1)}% • Average Error: ±
+                  Algorithm Accuracy: {(analysis.priceModel.r2 * 100).toFixed(1)}% • Average Error: ±
                   {formatPrice(analysis.priceModel.rmse)}
                 </p>
               </div>
@@ -640,7 +640,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
   return (
     <>
-      <Card className="h-fit">{CardInner(false)}</Card>
+      <Card id="analysis-graph" className="h-fit">{CardInner(false)}</Card>
 
       {isExpanded && (
         <div

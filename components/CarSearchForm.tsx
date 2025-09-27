@@ -16,10 +16,6 @@ import {
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 
-// ⬇️ Tips system + CSS (adjust import path if your file lives elsewhere)
-//import { TipsSystem } from '@/components/ui/tips';
-//import '@/app/tips.css';
-
 interface MakeOption {
   make_norm: string;
   display_make: string;
@@ -103,9 +99,6 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-      {/* First-time user guide */}
-      {/* <TipsSystem /> */}
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div id="make">

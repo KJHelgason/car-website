@@ -83,7 +83,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
             <div className="space-y-4">
                 {/* Header */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div id="sort-buttons" className="flex flex-wrap items-center gap-2">
                         <Label className="text-lg font-semibold mr-2">Search Results</Label>
                         <Button
                             variant="outline"
@@ -230,7 +230,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                 </div>
 
                 {/* Grid of listings */}
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div id="search-results" className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {visibleListings.map((car, index) => (
                         <div
                             key={`${car.make}-${car.model}-${index}`}
@@ -280,6 +280,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                                     )}
                                     {onViewPriceAnalysis && (
                                         <Button
+                                            id='analyze-price-button'
                                             variant="outline"
                                             size="sm"
                                             onClick={() => {

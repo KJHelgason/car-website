@@ -15,6 +15,7 @@ import { Persistent } from '@/components/Persistent';
 
 // Tips system + button
 import { TipsSystem } from '@/components/ui/tips';
+import type { SearchMode } from '@/components/ui/tips';
 import { TipsButton } from '@/components/ui/tipsbutton';
 import '@/app/tips.css';
 
@@ -51,6 +52,7 @@ export default function Home() {
   const [makes, setMakes] = useState<Array<{ make_norm: string; display_make: string }>>([]);
   const [searchedYear, setSearchedYear] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'analysis' | 'range'>('analysis');
+  const [hasRangeResults, setHasRangeResults] = useState(false);
 
   useEffect(() => {
     fetchMakes();
@@ -314,7 +316,10 @@ export default function Home() {
   return (
     <main className="container mx-auto p-4">
       {/* Mount tips system once so it can show on first visit & be reopened by the button */}
-      <TipsSystem />
+      <TipsSystem 
+        mode={searchMode === 'range' ? 'search' : 'analysis'} 
+        hasSearched={searchMode === 'analysis' ? !!analysis : hasRangeResults} 
+      />
 
       <h1 className="text-4xl font-bold mb-4 text-center">Car Price Scout</h1>
 
@@ -322,7 +327,7 @@ export default function Home() {
         {searchMode === "analysis" ? (
           <>
             {/* Analysis Mode: Two Column Layout */}
-            <div className="lg:w-1/2 lg:basis-1/2">
+            <div className="lg:w-1/2 lg:basis-1/2 space-y-4">
               <div className="flex justify-between items-stretch w-full gap-4 mb-4">
                 <SearchToggle mode={searchMode} onModeChange={setSearchMode} />
                 <TipsButton
@@ -410,7 +415,8 @@ export default function Home() {
                 onViewPriceAnalysis={(data) => {
                   setSearchMode('analysis');
                   handleSearch(data);
-                }} 
+                }}
+                onSearchStateChange={setHasRangeResults}
               />
             </div>
           </>
