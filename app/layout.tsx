@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import "./globals.css";
 import Script from "next/script";
 
@@ -21,12 +21,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="en">
       <head>
+        {/* Google AdSense */}
         <Script
           id="adsense-script"
           strategy="afterInteractive"
@@ -35,8 +38,26 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <meta name="google-adsense-account" content="ca-pub-1682128968609505" />
+
+        {/* Google Analytics (GA4) - static snippet */}
+        {GA_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-static" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}');
+              `}
+            </Script>
+          </>
+        )}
       </head>
-      <body className="antialiased">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>

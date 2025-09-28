@@ -173,7 +173,7 @@ export function TipsSystem({
 
     window.addEventListener('open-tips', openHandler as EventListener);
     return () => window.removeEventListener('open-tips', openHandler as EventListener);
-  }, []);
+  }, [mode, tips.length]);
 
   // Close tips when mode changes
   useEffect(() => {
@@ -192,7 +192,7 @@ export function TipsSystem({
     return () => {
       clearHighlights();
     };
-  }, [showTips, currentTip]);
+  }, [showTips, currentTip, tips]);
 
   const closeAndRemember = () => {
     if (typeof window !== 'undefined') {

@@ -11,13 +11,11 @@ import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
 import { DailyDeals } from '@/components/DailyDeals';
-import { Persistent } from '@/components/Persistent';
-
 // Tips system + button
 import { TipsSystem } from '@/components/ui/tips';
-import type { SearchMode } from '@/components/ui/tips';
 import { TipsButton } from '@/components/ui/tipsbutton';
 import '@/app/tips.css';
+import { Suspense } from "react"; 
 
 // Minimal shape we read from Supabase for car_listings
 interface DbCarListing {
@@ -316,9 +314,9 @@ export default function Home() {
   return (
     <main className="container mx-auto p-4">
       {/* Mount tips system once so it can show on first visit & be reopened by the button */}
-      <TipsSystem 
-        mode={searchMode === 'range' ? 'search' : 'analysis'} 
-        hasSearched={searchMode === 'analysis' ? !!analysis : hasRangeResults} 
+      <TipsSystem
+        mode={searchMode === 'range' ? 'search' : 'analysis'}
+        hasSearched={searchMode === 'analysis' ? !!analysis : hasRangeResults}
       />
 
       <h1 className="text-4xl font-bold mb-4 text-center">Car Price Scout</h1>
@@ -363,8 +361,10 @@ export default function Home() {
             </div>
 
             <div className="lg:w-1/2 lg:basis-1/2 space-y-4 h-full">
-              <CarDeals onViewPriceAnalysis={handleSearch} />
-              <DailyDeals onViewPriceAnalysis={handleSearch} />
+              <Suspense fallback={<div>Loading deals...</div>}>
+                <CarDeals onViewPriceAnalysis={handleSearch} />
+                <DailyDeals onViewPriceAnalysis={handleSearch} />
+              </Suspense>
               {analysis && (
                 <SimilarCarList
                   analysis={analysis}
@@ -404,20 +404,24 @@ export default function Home() {
               </div>
 
               <div className="lg:w-1/2 lg:basis-1/2">
-                <CarDeals onViewPriceAnalysis={handleSearch} />
+                <Suspense fallback={<div>Loading deals...</div>}>
+                  <CarDeals onViewPriceAnalysis={handleSearch} />
+                </Suspense>
               </div>
             </div>
 
             {/* Search Section: Full Width */}
             <div className="w-full">
-              <CarListSearch 
-                makes={makes} 
-                onViewPriceAnalysis={(data) => {
-                  setSearchMode('analysis');
-                  handleSearch(data);
-                }}
-                onSearchStateChange={setHasRangeResults}
-              />
+              <Suspense fallback={<div>Loading search...</div>}>
+                <CarListSearch
+                  makes={makes}
+                  onViewPriceAnalysis={(data) => {
+                    setSearchMode('analysis');
+                    handleSearch(data);
+                  }}
+                  onSearchStateChange={setHasRangeResults}
+                />
+              </Suspense>
             </div>
           </>
         )}
