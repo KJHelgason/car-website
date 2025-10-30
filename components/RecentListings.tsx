@@ -132,6 +132,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
           url: listing.url,
           image_url: listing.image_url,
           scraped_at: listing.scraped_at,
+          source: listing.source,
           estimated_price,
           pct_below
         };
@@ -200,59 +201,70 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {listings.map((listing, index) => (
+          {listings.map((listing, index) => {
+            // Debug logging
+            console.log(`Listing ${index}:`, {
+              make: listing.make,
+              model: listing.model,
+              source: listing.source,
+              sourceType: typeof listing.source,
+              hasFacebook: listing.source && listing.source.toLowerCase().includes('facebook'),
+              exactMatch: listing.source === 'Facebook Marketplace'
+            });
+            
+            return (
             <Card
               key={index}
               className="hover:bg-gray-50 transition-all py-0 overflow-hidden"
             >
               <div className="flex items-stretch">
                 {/* Image - clickable, fills top, bottom, left edges */}
-                <div className="relative flex-shrink-0">
+                <div className="relative flex-shrink-0 w-24 sm:w-32 overflow-hidden">
                   <a
                     href={listing.url || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block"
+                    className="block h-full relative"
                     onClick={(e) => {
                       if (!listing.url) e.preventDefault();
                     }}
                   >
-                    <div className="w-24 h-full sm:w-32 bg-slate-100 hover:opacity-90 transition-opacity">
+                    <div className="w-full h-full bg-slate-100 hover:opacity-90 transition-opacity">
                       {listing.image_url ? (
                         <img
                           src={listing.image_url}
-                            alt={`${listing.display_make || listing.make} ${listing.display_name || listing.model}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
-                              if (placeholder) placeholder.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-500 text-xs text-center p-2"
-                          style={{ display: listing.image_url ? 'none' : 'flex' }}
-                        >
-                          {listing.display_make || listing.make} {listing.display_name || listing.model}
-                        </div>
+                          alt={`${listing.display_make || listing.make} ${listing.display_name || listing.model}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (placeholder) placeholder.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-500 text-xs text-center p-2"
+                        style={{ display: listing.image_url ? 'none' : 'flex' }}
+                      >
+                        {listing.display_make || listing.make} {listing.display_name || listing.model}
                       </div>
-                    </a>
-                    {/* Save Button */}
-                    <div className="absolute top-2 right-2">
-                      <SaveListingButton listingId={listing.id} size="sm" />
                     </div>
-                    {/* Facebook Icon - positioned at bottom-right */}
-                    {listing.source === 'Facebook Marketplace' && (
-                      <div className="absolute bottom-2 right-2 z-10 bg-white rounded-full p-1 shadow-md">
-                        <svg className="w-3 h-3 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
-                      </div>
-                    )}
+                  </a>
+                  {/* Save Button */}
+                  <div className="absolute top-2 right-2 z-20 pointer-events-auto">
+                    <SaveListingButton listingId={listing.id} size="sm" />
                   </div>
+                  {/* Facebook Icon - positioned at bottom-right */}
+                  {listing.source && listing.source.toLowerCase().includes('facebook') && (
+                    <div className="absolute bottom-2 right-2 z-20 bg-white rounded-full p-0.5 shadow-lg pointer-events-none">
+                      <svg className="w-4.5 h-4.5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
 
-                  {/* Content */}
+                {/* Content */}
                   <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-2 sm:gap-4">
                       <div className="min-w-0 flex-1">
@@ -324,7 +336,8 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                   </div>
                 </div>
             </Card>
-          ))}
+          );
+          })}
         </div>
       </CardContent>
     </Card>
