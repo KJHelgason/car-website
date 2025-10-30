@@ -38,7 +38,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
     fetchRecentListings();
   }, []);
 
-  const calculateEstimate = (coefJson: any, year: number, kilometers: number): number => {
+  const calculateEstimate = (coefJson: unknown, year: number, kilometers: number): number => {
     try {
       // Parse if it's a string
       const coef = typeof coefJson === 'string' ? JSON.parse(coefJson) : coefJson;

@@ -214,7 +214,7 @@ export default function AdminPanel() {
   async function fetchTimeSeriesData() {
     try {
       const now = new Date();
-      let startDate = new Date();
+      const startDate = new Date();
       
       switch (timeRange) {
         case 'day':
@@ -424,7 +424,7 @@ export default function AdminPanel() {
               <AnimatedNumber value={stats.totalSearches} />
               <ChangeIndicator change={dailyChanges.totalSearches} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday's activity</p>
+            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
 
@@ -438,7 +438,7 @@ export default function AdminPanel() {
               <AnimatedNumber value={stats.totalPageViews} />
               <ChangeIndicator change={dailyChanges.totalPageViews} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday's activity</p>
+            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
 
@@ -452,7 +452,7 @@ export default function AdminPanel() {
               <AnimatedNumber value={stats.totalUsers} />
               <ChangeIndicator change={dailyChanges.totalUsers} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday's activity</p>
+            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
 
@@ -466,7 +466,7 @@ export default function AdminPanel() {
               <AnimatedNumber value={stats.totalSavedSearches} />
               <ChangeIndicator change={dailyChanges.totalSavedSearches} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday's activity</p>
+            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
 
@@ -480,7 +480,7 @@ export default function AdminPanel() {
               <AnimatedNumber value={stats.totalSavedListings} />
               <ChangeIndicator change={dailyChanges.totalSavedListings} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday's activity</p>
+            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
 
@@ -494,7 +494,7 @@ export default function AdminPanel() {
               <AnimatedNumber value={stats.activeListings} />
               <ChangeIndicator change={dailyChanges.activeListings} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday's activity</p>
+            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
       </div>

@@ -20,11 +20,11 @@ export function HeroSection() {
           <div className="flex flex-wrap gap-3">
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">ML Price Predictions</span>
+              <span className="text-sm font-medium">ML Price Estimates</span>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <Zap className="h-4 w-4" />
-              <span className="text-sm font-medium">Daily Deal Updates</span>
+              <span className="text-sm font-medium">Daily Deals</span>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <Search className="h-4 w-4" />
@@ -57,8 +57,8 @@ export function HeroSection() {
                 <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-900">95%</div>
-                <div className="text-xs text-slate-500">Accuracy</div>
+                <div className="text-2xl font-bold text-slate-900">90%</div>
+                <div className="text-xs text-slate-500">Coverage</div>
               </div>
             </div>
           </CardContent>

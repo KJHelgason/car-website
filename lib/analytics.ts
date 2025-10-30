@@ -58,7 +58,7 @@ export async function trackSearch(params: {
 }
 
 // Track user activity
-export async function trackActivity(activityType: string, metadata?: Record<string, any>) {
+export async function trackActivity(activityType: string, metadata?: Record<string, unknown>) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     

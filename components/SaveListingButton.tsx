@@ -15,15 +15,10 @@ interface SaveListingButtonProps {
 export function SaveListingButton({ listingId, className, size = 'md' }: SaveListingButtonProps) {
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Don't render if no listing ID (e.g., price curve points)
-  if (!listingId) {
-    return null;
-  }
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !listingId) {
       setIsSaved(false);
       return;
     }
@@ -40,13 +35,13 @@ export function SaveListingButton({ listingId, className, size = 'md' }: SaveLis
     e.preventDefault();
     e.stopPropagation();
 
-    if (!user) {
+    if (!user || !listingId) {
       // Could show a login modal here
       alert('Please log in to save listings');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
 
     try {
       if (isSaved) {
@@ -63,9 +58,14 @@ export function SaveListingButton({ listingId, className, size = 'md' }: SaveLis
     } catch (error) {
       console.error('Error toggling saved listing:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
+
+  // Don't render if no listing ID
+  if (!listingId) {
+    return null;
+  }
 
   const sizeClasses = {
     sm: 'w-6 h-6',
@@ -82,11 +82,11 @@ export function SaveListingButton({ listingId, className, size = 'md' }: SaveLis
   return (
     <button
       onClick={handleToggle}
-      disabled={isLoading}
+      disabled={loading}
       className={cn(
         'flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-md transition-all cursor-pointer',
         'hover:bg-gray-200 hover:scale-110 active:scale-95',
-        isLoading && 'opacity-50 cursor-not-allowed',
+        loading && 'opacity-50 cursor-not-allowed',
         sizeClasses[size],
         className
       )}

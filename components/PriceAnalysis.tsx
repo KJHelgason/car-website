@@ -568,7 +568,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
     }, [similarListings, selectedYear, showFullGraph])
 
     // Custom dot component that handles hover
-    const CustomDot = (props: any) => {
+    const CustomDot = (props: { cx?: number; cy?: number; payload?: PricePoint }) => {
       const { cx, cy, payload } = props
       if (!cx || !cy || !payload) return null
 

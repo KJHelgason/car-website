@@ -108,6 +108,7 @@ export async function getSavedListings(userId: string, limit?: number): Promise<
   }
   
   // Flatten the joined data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data || []).map((item: any) => ({
     id: item.id,
     user_id: item.user_id,
