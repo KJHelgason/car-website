@@ -27,7 +27,7 @@ export function TipsButton({
 
   return (
     <Button onClick={openTips} variant={variant} size={size} className={className}>
-      <HelpCircle className="h-4 w-4 mr-2" />
+      <HelpCircle className="h-4 w-4 mr-1" />
       Tips
     </Button>
   );

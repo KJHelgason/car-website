@@ -9,9 +9,11 @@ import {
 } from '@/components/ui/select';
 import { useEffect, useMemo, useState } from 'react';
 import type { CarAnalysis } from '@/types/car';
+import type { CarItem } from '@/types/form';
 import { Button } from '@/components/ui/button';
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { SaveListingButton } from '@/components/SaveListingButton';
 
 type CoefJson = {
   intercept: number;
@@ -28,12 +30,15 @@ type PriceModelLike = CarAnalysis['priceModel'] & {
 };
 
 type ExtendedCarPricePoint = {
+  id?: number;
   kilometers: number;
   price: number;
   name?: string;
   url?: string;
   year?: string;
   isTarget?: boolean;
+  image_url?: string;
+  source?: string;
   /** +% below estimate (positive = deal), negative = above estimate */
   priceDifference?: number;
 };
@@ -42,6 +47,7 @@ interface SimilarCarListProps {
   analysis: CarAnalysis;
   onYearChange?: (year: number) => void;
   searchedYear?: string | null;
+  onViewPriceAnalysis?: (data: CarItem) => void;
 }
 
 // ---- helpers ----
@@ -68,7 +74,7 @@ const estimateFromCoef = (coef: CoefJson, yearNum: number, km: number): number =
   );
 };
 
-export function SimilarCarList({ analysis, onYearChange, searchedYear }: SimilarCarListProps) {
+export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPriceAnalysis }: SimilarCarListProps) {
   const { similarListings, priceModel } = analysis;
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -288,36 +294,124 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear }: Similar
       <CardContent className="flex-1 overflow-auto">
         <div className="space-y-4 pr-2">
           {filteredListings.slice(0, displayLimit).map((car, idx) => (
-            <Card key={`${car.url ?? car.name ?? 'car'}-${idx}`} className="hover:bg-gray-50">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start gap-4">
-                  <div>
-                    <h4 className="font-semibold">{car.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {typeof car.kilometers === 'number' ? car.kilometers.toLocaleString() : 'Unknown'} km
-                    </p>
-                    {car.year && <p className="text-xs text-gray-500">Year: {car.year}</p>}
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-lg">{formatPrice(car.price)}</p>
-                    {typeof car.priceDifference === 'number' && (
-                      <p className={car.priceDifference > 0 ? 'text-sm text-green-600' : 'text-sm text-red-600'}>
-                        {Math.abs(car.priceDifference).toFixed(1)}% {car.priceDifference > 0 ? 'below' : 'above'} estimate
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {car.url && (
+            <Card key={`${car.url ?? car.name ?? 'car'}-${idx}`} className="hover:bg-gray-50 py-0 overflow-hidden">
+              <div className="flex items-stretch min-h-[128px]">
+                {/* Car Image - clickable, fills top, left, and bottom edges */}
+                <div className="relative w-32 flex-shrink-0">
                   <a
-                    href={car.url}
+                    href={car.url || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline block mt-2"
+                    className="w-full h-full bg-slate-100 block relative"
+                    onClick={(e) => {
+                      if (!car.url) e.preventDefault();
+                    }}
                   >
-                    View Listing →
+                    {car.image_url ? (
+                      <img
+                        src={car.image_url}
+                        alt={car.name || 'Car'}
+                        className="absolute inset-0 w-full h-full object-contain hover:opacity-90 transition-opacity"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (placeholder) placeholder.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="absolute inset-0 w-full h-full flex items-center justify-center bg-slate-200 text-slate-500 text-xs text-center p-2"
+                      style={{ display: car.image_url ? 'none' : 'flex' }}
+                    >
+                      {car.name || 'Car'}
+                    </div>
                   </a>
-                )}
-              </CardContent>
+                  {/* Save Button */}
+                  {car.id && (
+                    <div className="absolute top-2 right-2">
+                      <SaveListingButton listingId={car.id} size="sm" />
+                    </div>
+                  )}
+                  {/* Facebook Icon - positioned at bottom-right */}
+                  {car.source === 'Facebook Marketplace' && (
+                    <div className="absolute bottom-2 right-2 z-10 bg-white rounded-full p-1.5 shadow-md">
+                      <svg className="w-4 h-4 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 flex flex-col justify-between p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        {/* Title - clickable */}
+                        <a
+                          href={car.url || undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={car.url ? "hover:text-blue-700 transition-colors" : "cursor-default"}
+                          onClick={(e) => {
+                            if (!car.url) e.preventDefault();
+                          }}
+                        >
+                          <h4 className="font-semibold leading-tight">{car.name}</h4>
+                        </a>
+                        <p className="text-sm text-slate-600">
+                          {typeof car.kilometers === 'number' ? car.kilometers.toLocaleString() : 'Unknown'} km
+                        </p>
+                        {car.year && <p className="text-xs text-slate-500 mt-1">Year: {car.year}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{formatPrice(car.price)}</p>
+                        {typeof car.priceDifference === 'number' && (
+                          <div className={car.priceDifference > 0 ? 'text-sm text-green-600' : 'text-sm text-red-600'}>
+                            <p className="leading-tight">{Math.abs(car.priceDifference).toFixed(1)}% {car.priceDifference > 0 ? 'below' : 'above'}</p>
+                            <p className="text-xs leading-tight">estimate</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      {car.url ? (
+                        <a
+                          href={car.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          View listing
+                        </a>
+                      ) : (
+                        <span />
+                      )}
+
+                      {onViewPriceAnalysis && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="cursor-pointer"
+                          onClick={() => {
+                            const [make, ...modelParts] = (car.name || '').split(' ');
+                            const model = modelParts.join(' ');
+                            const payload: CarItem = {
+                              make: make || '',
+                              model: model || '',
+                              year: car.year || 'all',
+                              kilometers: typeof car.kilometers === 'number' ? car.kilometers : 0,
+                              price: car.price,
+                            };
+                            onViewPriceAnalysis(payload);
+                          }}
+                        >
+                          Analyze Price
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
             </Card>
           ))}
 

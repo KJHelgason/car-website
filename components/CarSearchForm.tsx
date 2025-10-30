@@ -85,6 +85,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
       .from('car_listings')
       .select('model')
       .eq('make', make)
+      .eq('is_active', true)
       .order('model', { ascending: true });
 
     if (!listingError && listingModels) {
@@ -98,7 +99,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
   };
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+    <div className="rounded-b-lg rounded-tr-lg border bg-card text-card-foreground shadow-sm p-6">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div id="make">

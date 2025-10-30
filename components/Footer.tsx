@@ -9,9 +9,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="font-semibold text-lg mb-3">Car Price Analysis</h3>
+            <h3 className="font-semibold text-lg mb-3">Allir Bilar</h3>
             <p className="text-sm text-muted-foreground">
-              Your trusted source for car price estimates and market analysis.
+              Your trusted source for car listings and price analysis.
             </p>
           </div>
 
@@ -64,7 +64,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-border mt-8 pt-6 text-center text-sm text-muted-foreground">
-          <p>&copy; {currentYear} Car Price Analysis. All rights reserved.</p>
+          <p>&copy; {currentYear} Allir Bilar. All rights reserved.</p>
           <p className="mt-2">
             This site uses cookies to enhance your experience.{' '}
             <Link href="/privacy-policy" className="text-primary hover:underline">

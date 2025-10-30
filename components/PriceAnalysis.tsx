@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from 'recharts'
 import { CarAnalysis } from '@/types/car'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Select,
   SelectContent,
@@ -13,12 +13,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { Maximize2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { SaveSearchButton } from '@/components/SaveSearchButton'
+import type { CarItem } from '@/types/form'
 
 interface PriceAnalysisProps {
   analysis: CarAnalysis
   onYearChange?: (year: number) => void
   /** 'all' | 'YYYY' from the search form */
   searchedYear?: string | null
+  searchParams?: CarItem
 }
 
 interface PricePoint {
@@ -28,6 +31,7 @@ interface PricePoint {
   url?: string
   year?: string
   isTarget?: boolean
+  image_url?: string
   /** raw km from listing; used to compute percent accurately */
   kmRaw?: number | null
 }
@@ -68,22 +72,32 @@ const CustomTooltip = ({
   pooledCoef,
   calcPriceFromCoef,
 }: CustomTooltipProps) => {
-  if (!active && !isHovering) return null
-  if (!payload || payload.length === 0) return null
+  // Show if actively hovering OR if the tooltip itself is being hovered
+  if ((!active && !isHovering) || !payload || payload.length === 0) return null
 
-  const data = payload[0].payload
-  const hasValidKm = typeof data.kmRaw === 'number' && Number.isFinite(data.kmRaw) && data.kmRaw > 0
-  const listingYear = data.year ? parseInt(data.year) : undefined
+  // Get all items from payload and filter out invalid ones
+  const allItems = payload
+    .map(p => p.payload)
+    .filter(data => data && data.price && data.kilometers)
+  
+  if (allItems.length === 0) return null
 
-  const expectedPrice =
-    pooledCoef && !data.isTarget && listingYear && hasValidKm
-      ? calcPriceFromCoef(pooledCoef, listingYear, data.kmRaw!)
-      : null
+  // Group items by coordinates to show count of overlapping dots
+  const coordKey = (data: PricePoint) => 
+    `${Math.round(data.price / 100000)}-${Math.round(data.kilometers / 1000)}`
+  
+  const grouped = allItems.reduce((acc, item) => {
+    const key = coordKey(item)
+    if (!acc[key]) acc[key] = []
+    acc[key].push(item)
+    return acc
+  }, {} as Record<string, PricePoint[]>)
 
-  const pct =
-    expectedPrice && expectedPrice > 0
-      ? ((expectedPrice - data.price) / expectedPrice) * 100
-      : null
+  // Get unique items at this position
+  const itemsToShow = Object.values(grouped).flat()
+    .filter((item, index, self) => 
+      index === self.findIndex(t => t.name === item.name && t.price === item.price)
+    )
 
   return (
     <div
@@ -92,44 +106,88 @@ const CustomTooltip = ({
       className="relative transition-opacity duration-150 ease-out"
       style={{ zIndex: 80 }}
     >
+      {/* Invisible bridge area to prevent tooltip from disappearing when moving mouse */}
       <div
-        className="absolute left-0 right-0"
+        className="absolute"
         style={{
-          top: -10,
-          height: '100%',
+          left: -20,
+          right: -20,
+          top: -20,
+          bottom: -20,
           pointerEvents: 'auto',
         }}
       />
+      
       <div
-        className="relative bg-white p-3 border rounded shadow-sm"
+        className="relative bg-white p-2 sm:p-3 border rounded shadow-lg text-sm max-w-xs sm:max-w-sm"
         style={{ pointerEvents: 'auto' }}
       >
-        {data.name && (
-          <p className="font-medium">
-            {data.url ? (
-              <a
-                href={data.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                {data.name} →
-              </a>
-            ) : (
-              data.name
-            )}
+        {itemsToShow.length > 1 && (
+          <p className="text-xs font-semibold text-gray-600 mb-2 pb-2 border-b">
+            {itemsToShow.length} cars at this position
           </p>
         )}
-        <p>{`Driven: ${Math.round(data.kilometers).toLocaleString()} km`}</p>
-        <p>{`Price: ${formatPrice(Math.round(data.price))}`}</p>
-        {data.year && <p>{`Year: ${data.year}`}</p>}
-        {pct !== null && (
-          <p className="mt-1 text-sm text-gray-600">
-            <span className={pct > 0 ? 'text-green-600' : 'text-red-600'}>
-              {Math.abs(pct).toFixed(1)}% {pct > 0 ? 'below' : 'above'} estimate
-            </span>
-          </p>
-        )}
+        
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {itemsToShow.map((data, idx) => {
+            const hasValidKm = typeof data.kmRaw === 'number' && Number.isFinite(data.kmRaw) && data.kmRaw > 0
+            const listingYear = data.year ? parseInt(data.year) : undefined
+
+            const expectedPrice =
+              pooledCoef && !data.isTarget && listingYear && hasValidKm
+                ? calcPriceFromCoef(pooledCoef, listingYear, data.kmRaw!)
+                : null
+
+            const pct =
+              expectedPrice && expectedPrice > 0
+                ? ((expectedPrice - data.price) / expectedPrice) * 100
+                : null
+
+            return (
+              <div key={`${idx}-${data.name || 'car'}`} className={idx > 0 ? 'pt-3 border-t' : ''}>
+                {data.image_url && (
+                  <div className="mb-2 w-full h-32 sm:h-40 bg-gray-100 rounded overflow-hidden">
+                    <img
+                      src={data.image_url}
+                      alt={data.name || 'Car'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
+                {data.name && (
+                  <p className="font-medium text-sm mb-1">
+                    {data.url ? (
+                      <a
+                        href={data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {data.name} →
+                      </a>
+                    ) : (
+                      data.name
+                    )}
+                  </p>
+                )}
+                
+                <div className="space-y-0.5">
+                  <p className="text-xs sm:text-sm">{`Driven: ${Math.round(data.kilometers).toLocaleString()} km`}</p>
+                  <p className="text-xs sm:text-sm">{`Price: ${formatPrice(Math.round(data.price))}`}</p>
+                  {data.year && <p className="text-xs sm:text-sm">{`Year: ${data.year}`}</p>}
+                  {pct !== null && (
+                    <p className="mt-1 text-xs sm:text-sm">
+                      <span className={pct > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                        {Math.abs(pct).toFixed(1)}% {pct > 0 ? 'below' : 'above'} estimate
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -151,15 +209,44 @@ function isTier(x: unknown): x is 'model_year' | 'model' | 'make' | 'global' {
   return x === 'model_year' || x === 'model' || x === 'make' || x === 'global'
 }
 
-export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAnalysisProps) {
+export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchParams }: PriceAnalysisProps) {
   const { targetCar, similarListings, priceCurves, estimatedPrice, priceRange, priceModel } =
     analysis
-  const [isTooltipHovering, setIsTooltipHovering] = useState(false)
+  const [hoveredPoint, setHoveredPoint] = useState<PricePoint | null>(null)
+  const [hoveredPoints, setHoveredPoints] = useState<PricePoint[]>([])
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number; showOnLeft?: boolean } | null>(null)
+  const [isTooltipHovered, setIsTooltipHovered] = useState(false)
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [availableYears, setAvailableYears] = useState<number[]>([])
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [showFullGraph, setShowFullGraph] = useState(false)
   const [noYearData, setNoYearData] = useState(false)
   const [yearModelNSamples, setYearModelNSamples] = useState<Record<number, number | null>>({})
+
+  // Helper to close tooltip
+  const closeTooltip = useCallback(() => {
+    setHoveredPoint(null)
+    setHoveredPoints([])
+    setTooltipPosition(null)
+    setIsTooltipHovered(false)
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current)
+      tooltipTimeoutRef.current = null
+    }
+  }, [])
+
+  // Preload all listing images when component mounts
+  useEffect(() => {
+    const imagesToPreload = similarListings
+      .filter(listing => listing.image_url)
+      .map(listing => listing.image_url!)
+    
+    // Preload images by creating Image objects
+    imagesToPreload.forEach(url => {
+      const img = new Image()
+      img.src = url
+    })
+  }, [similarListings])
 
   // Per-year curve overrides (null = checked and not found; array = found curve)
   const [yearCurveOverride, setYearCurveOverride] = useState<Record<number, PricePoint[] | null>>(
@@ -277,6 +364,34 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     }
   }, [selectedYear, priceModel, yearCurveOverride, buildCurveFromCoef])
 
+  // Close tooltip on escape key or when clicking outside
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeTooltip()
+      }
+    }
+
+    const handleClickOutside = (e: MouseEvent) => {
+      // If not hovering the tooltip and clicking outside, close it
+      if (!isTooltipHovered) {
+        const target = e.target as HTMLElement
+        // Check if click is outside the chart and tooltip
+        if (!target.closest('#analysis-graph') && !target.closest('.fixed.z-\\[90\\]')) {
+          closeTooltip()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    document.addEventListener('click', handleClickOutside)
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [isTooltipHovered, closeTooltip])
+
   // Build year options & choose a single default year
   useEffect(() => {
     const yearCounts = similarListings.reduce((acc, listing) => {
@@ -322,27 +437,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     setNoYearData(false)
   }, [similarListings, searchedYear])
 
-  // Prevent background scroll while expanded
-  useEffect(() => {
-    if (isExpanded) {
-      const original = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = original
-      }
-    }
-  }, [isExpanded])
-
-  // Close on Esc
-  const onKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') setIsExpanded(false)
-  }, [])
-  useEffect(() => {
-    if (!isExpanded) return
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isExpanded, onKeyDown])
-
   const formatPrice = (price: number) => {
     if (!price || isNaN(price)) return 'N/A'
     return new Intl.NumberFormat('is-IS', {
@@ -382,7 +476,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
     }
     return (
       <span
-        className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${styles[curveTier]}`}
+        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${styles[curveTier]}`}
         title={
           curveTier === 'model_year'
             ? 'Per-year model found for this make/model/year (visual curve only). Percent below/above uses pooled model for consistency.'
@@ -413,42 +507,178 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
   }, [selectedYear, yearCurveOverride, yearModelNSamples, analysis.priceModel.n_samples])
 
   // Chart
-  const ChartBlock = (heightClass: string) => (
-    <div className={heightClass}>
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 60 }}>
+  const ChartBlock = (heightClass: string) => {
+    // Calculate X-axis domain based on actual data points only (not the curve)
+    const xDomain = useMemo(() => {
+      const filteredData = similarListings
+        .filter((listing) => {
+          if (listing.isTarget) return true
+          const listingYear = listing.year ? parseInt(listing.year) : null
+          return selectedYear ? listingYear === selectedYear : false
+        })
+        .filter(listing => !listing.isCurve) // Exclude curve points
+
+      if (filteredData.length === 0) return [0, 300000]
+
+      const maxKm = Math.max(...filteredData.map(d => d.kilometers || 0))
+      const minKm = Math.min(...filteredData.map(d => d.kilometers || 0))
+      
+      // Add 5% padding on both sides
+      const range = maxKm - minKm
+      const padding = Math.max(range * 0.05, 5000) // At least 5k padding
+      
+      // Upper bound always cuts off at max + padding
+      const upper = Math.ceil((maxKm + padding) / 5000) * 5000
+      
+      // Lower bound: full view starts at 0, optimized view starts near data
+      let lower = 0
+      if (!showFullGraph) {
+        lower = minKm < 20000 ? 0 : Math.floor((minKm - padding) / 5000) * 5000
+      }
+      
+      return [Math.max(0, lower), upper]
+    }, [similarListings, selectedYear, showFullGraph])
+
+    // Calculate Y-axis domain based on actual data
+    const yDomain = useMemo(() => {
+      const filteredData = similarListings
+        .filter((listing) => {
+          if (listing.isTarget) return true
+          const listingYear = listing.year ? parseInt(listing.year) : null
+          return selectedYear ? listingYear === selectedYear : false
+        })
+        .filter(listing => !listing.isCurve) // Exclude curve points
+
+      if (filteredData.length === 0) return [0, 10000000]
+
+      const maxPrice = Math.max(...filteredData.map(d => d.price || 0))
+      const minPrice = Math.min(...filteredData.map(d => d.price || 0))
+      
+      // Add 5% padding on top, 5% on bottom for better visualization
+      const range = maxPrice - minPrice
+      const padding = Math.max(range * 0.05, 200000) // At least 200k padding
+      
+      // Upper bound always cuts off just above data
+      const upper = Math.ceil((maxPrice + padding) / 500000) * 500000
+      
+      // Lower bound: full view starts at 0, optimized view starts near data
+      const lower = showFullGraph ? 0 : Math.max(0, Math.floor((minPrice - padding) / 500000) * 500000)
+      
+      return [lower, upper]
+    }, [similarListings, selectedYear, showFullGraph])
+
+    // Custom dot component that handles hover
+    const CustomDot = (props: any) => {
+      const { cx, cy, payload } = props
+      if (!cx || !cy || !payload) return null
+
+      const isHovered = hoveredPoints.some(p => 
+        p.price === payload.price && p.kilometers === payload.kilometers
+      )
+
+      return (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={isHovered ? 6 : 4}
+          fill={payload.isTarget ? '#ef4444' : '#94a3b8'}
+          stroke={isHovered ? '#1e40af' : 'none'}
+          strokeWidth={2}
+          style={{ cursor: 'pointer' }}
+          onMouseEnter={(e) => {
+            // Find all points at similar coordinates
+            const tolerance = 0.02 // 2% tolerance
+            const nearby = similarListings
+              .filter(l => l.year ? parseInt(l.year) === selectedYear : false)
+              .filter(p => {
+                const priceDiff = Math.abs(p.price - payload.price) / payload.price
+                const kmDiff = Math.abs(p.kilometers - payload.kilometers) / (payload.kilometers || 1)
+                return priceDiff < tolerance && kmDiff < tolerance
+              })
+            
+            setHoveredPoints(nearby.length > 0 ? nearby : [payload])
+            setHoveredPoint(payload)
+            
+            // Get tooltip position relative to viewport
+            const rect = e.currentTarget.getBoundingClientRect()
+            const windowWidth = window.innerWidth
+            
+            // Show tooltip on left if point is on right half of screen
+            const showOnLeft = rect.left > windowWidth / 2
+            
+            setTooltipPosition({ 
+              x: rect.left, 
+              y: rect.top,
+              showOnLeft 
+            })
+          }}
+          onMouseLeave={() => {
+            // Clear any existing timeout
+            if (tooltipTimeoutRef.current) {
+              clearTimeout(tooltipTimeoutRef.current)
+            }
+            
+            // Set timeout to close tooltip if not hovering over it
+            tooltipTimeoutRef.current = setTimeout(() => {
+              if (!isTooltipHovered) {
+                closeTooltip()
+              }
+            }, 150)
+          }}
+        />
+      )
+    }
+
+    return (
+      <div 
+        className={`${heightClass} outline-none [&_*]:outline-none`}
+        onClick={(e) => {
+          // Close tooltip if clicking on empty space (not on a dot)
+          if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'svg') {
+            closeTooltip()
+          }
+        }}
+        style={{ outline: 'none' }}
+      >
+        <style jsx>{`
+          svg:focus {
+            outline: none !important;
+          }
+          svg *:focus {
+            outline: none !important;
+          }
+        `}</style>
+        <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart 
+          margin={{ top: 10, right: 10, bottom: 40, left: 10 }} 
+          className="sm:ml-4 sm:mb-0 outline-none focus:outline-none [&_*]:outline-none"
+          onClick={() => {
+            // Close tooltip when clicking anywhere in the chart
+            if (!isTooltipHovered) {
+              closeTooltip()
+            }
+          }}
+        >
           <XAxis
             type="number"
             dataKey="kilometers"
             name="Kilometers"
             unit=" km"
+            domain={xDomain as [number, number]}
+            allowDataOverflow={false}
             tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-            label={{ value: 'Kilometers Driven', position: 'insideBottom', offset: -15 }}
+            label={{ value: 'Kilometers Driven', position: 'insideBottom', offset: -10, className: 'text-xs sm:text-sm' }}
+            tick={{ fontSize: 12 }}
           />
           <YAxis
             type="number"
             dataKey="price"
             name="Price"
+            domain={yDomain as [number, number]}
+            allowDataOverflow={false}
             tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`}
-            label={{ value: 'Price (ISK)', angle: -90, position: 'insideLeft', offset: -15 }}
-          />
-          <Tooltip
-            cursor={{ strokeDasharray: '3 3' }}
-            isAnimationActive={false}
-            content={(props) => (
-              <div className="transition-opacity duration-150 ease-out">
-                <CustomTooltip
-                  {...props}
-                  isHovering={isTooltipHovering}
-                  onMouseEnter={() => setIsTooltipHovering(true)}
-                  onMouseLeave={() => setIsTooltipHovering(false)}
-                  formatPrice={formatPrice}
-                  pooledCoef={pooledCoef}
-                  calcPriceFromCoef={calcPriceFromCoef}
-                />
-              </div>
-            )}
-            wrapperStyle={{ zIndex: 80 }}
+            label={{ value: 'Price (ISK)', angle: -90, position: 'insideLeft', offset: 5, className: 'text-xs sm:text-sm' }}
+            tick={{ fontSize: 12 }}
           />
 
           {/* Similar listings (filter to selectedYear) */}
@@ -469,23 +699,9 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
               }))}
             fill="#94a3b8"
             opacity={0.6}
+            shape={<CustomDot />}
             onClick={(point: PricePoint) => {
               if (point?.url) window.open(point.url, '_blank', 'noopener,noreferrer')
-            }}
-            style={{ cursor: 'pointer' }}
-            onMouseOver={(state) => {
-              const target = (state?.currentTarget as SVGCircleElement) || null
-              if (target) {
-                target.style.fill = '#64748b'
-                target.style.opacity = '1'
-              }
-            }}
-            onMouseOut={(state) => {
-              const target = (state?.currentTarget as SVGCircleElement) || null
-              if (target) {
-                target.style.fill = '#94a3b8'
-                target.style.opacity = '0.6'
-              }
             }}
           />
 
@@ -494,7 +710,11 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
             <Scatter
               key={selectedYear}
               name={`Price Curve ${selectedYear}`}
-              data={currentCurve}
+              data={currentCurve.filter(point => 
+                point.kilometers >= xDomain[0] && 
+                point.kilometers <= xDomain[1] &&
+                point.price <= yDomain[1] // Only clip upper bound, allow lower values
+              )}
               fill="none"
               line={{ stroke: '#2563eb', strokeWidth: 2, strokeOpacity: 1 }}
               lineType="joint"
@@ -513,20 +733,33 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
         </ScatterChart>
       </ResponsiveContainer>
     </div>
-  )
+    )
+  }
 
   // Inner card content
-  const CardInner = (isInOverlay: boolean) => {
-    const modelQualitySpan = isInOverlay ? '' : 'col-span-2'
-
+  const CardInner = () => {
     return (
       <>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <div className="flex items-center">
-            <CardTitle>Price Analysis</CardTitle>
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-2">
+          <div className="flex items-center flex-wrap gap-2">
+            <CardTitle className="text-lg sm:text-xl">Price Analysis</CardTitle>
             {tierBadge}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {searchParams && (
+              <SaveSearchButton
+                searchParams={{
+                  make: searchParams.make,
+                  model: searchParams.model,
+                  year: searchParams.year && searchParams.year !== 'all' ? parseInt(searchParams.year) : undefined,
+                  search_type: 'price_analysis',
+                }}
+                variant="outline"
+                size="sm"
+                className="cursor-pointer"
+              />
+            )}
+
             <Select
               value={selectedYear?.toString()}
               onValueChange={(value) => {
@@ -536,7 +769,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
                 setNoYearData(false)
               }}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
               <SelectContent className="z-[80]">
@@ -555,29 +788,16 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
               </SelectContent>
             </Select>
 
-            {!isInOverlay ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsExpanded(true)}
-                aria-label="Expand"
-                title="Expand"
-                className="cursor-pointer"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsExpanded(false)}
-                aria-label="Close"
-                title="Close"
-                className="cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowFullGraph(!showFullGraph)}
+              aria-label={showFullGraph ? "Show optimized view" : "Show full graph"}
+              title={showFullGraph ? "Show optimized view" : "Show full graph"}
+              className="cursor-pointer"
+            >
+              {showFullGraph ? <X className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
           </div>
         </CardHeader>
 
@@ -589,46 +809,43 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
               </p>
             )}
 
-            {ChartBlock(isInOverlay ? 'h-[75vh]' : 'h-[400px]')}
+            {ChartBlock('h-[280px] sm:h-[400px]')}
 
-            <div
-              className={`grid ${
-                isInOverlay ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2'
-              } gap-4`}
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {targetCar.price && targetCar.kilometers ? (
                 <>
                   <div>
-                    <h3 className="text-sm font-medium">Estimated Fair Price</h3>
-                    <p className="text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="text-xs sm:text-sm font-medium">Estimated Fair Price</h3>
+                    <p className="text-xl sm:text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">
                       Range: {formatPrice(priceRange.low)} - {formatPrice(priceRange.high)}
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium">Assessment</h3>
-                    <p className={`text-2xl font-bold ${getPriceAssessment().color}`}>
+                    <h3 className="text-xs sm:text-sm font-medium">Assessment</h3>
+                    <p className={`text-xl sm:text-2xl font-bold ${getPriceAssessment().color}`}>
                       {getPriceAssessment().text}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs sm:text-sm text-gray-500">
                       Based on {displayedNSamples.toLocaleString()} similar cars
                     </p>
                   </div>
                 </>
               ) : (
-                <div className="col-span-2">
-                  <p className="text-sm text-gray-500">
+                <div className="sm:col-span-2">
+                  <p className="text-xs sm:text-sm text-gray-500">
                     Price and mileage required for value assessment
                   </p>
                 </div>
               )}
 
-              <div className={modelQualitySpan}>
-                <h3 className="text-sm font-medium">Model Quality</h3>
-                <p className="text-sm text-gray-500">
-                  Algorithm Accuracy: {(analysis.priceModel.r2 * 100).toFixed(1)}% • Average Error: ±
-                  {formatPrice(analysis.priceModel.rmse)}
+              <div className="col-span-2">
+                <h3 className="text-xs sm:text-sm font-medium">Model Quality</h3>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  <span className="block sm:inline">Algorithm Accuracy: {(analysis.priceModel.r2 * 100).toFixed(1)}%</span>
+                  <span className="hidden sm:inline"> • </span>
+                  <span className="block sm:inline">Average Error: ±{formatPrice(analysis.priceModel.rmse)}</span>
                 </p>
               </div>
             </div>
@@ -640,21 +857,110 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear }: PriceAna
 
   return (
     <>
-      <Card id="analysis-graph" className="h-fit">{CardInner(false)}</Card>
+      <Card id="analysis-graph" className="h-fit relative">{CardInner()}</Card>
 
-      {isExpanded && (
+      {/* Custom Tooltip Overlay */}
+      {hoveredPoints.length > 0 && tooltipPosition && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center"
-          onClick={() => setIsExpanded(false)}
+          className="fixed z-[90] pointer-events-none"
+          style={{
+            left: tooltipPosition.showOnLeft 
+              ? 'auto'
+              : tooltipPosition.x + 30,
+            right: tooltipPosition.showOnLeft
+              ? window.innerWidth - tooltipPosition.x
+              : 'auto',
+            top: tooltipPosition.y - 20,
+          }}
         >
-          <div className="absolute inset-0 bg-black/70" />
           <div
-            className="relative w-[95%] h-[90%] bg-white rounded-xl shadow-xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+            className="bg-white p-2 sm:p-3 border rounded shadow-lg text-sm max-w-xs sm:max-w-sm pointer-events-auto"
+            onMouseEnter={() => {
+              setIsTooltipHovered(true)
+              // Clear any pending close timeout
+              if (tooltipTimeoutRef.current) {
+                clearTimeout(tooltipTimeoutRef.current)
+                tooltipTimeoutRef.current = null
+              }
+            }}
+            onMouseLeave={() => {
+              setIsTooltipHovered(false)
+              closeTooltip()
+            }}
           >
-            <Card className="border-none shadow-none flex-1 overflow-hidden">
-              {CardInner(true)}
-            </Card>
+            {hoveredPoints.length > 1 && (
+              <p className="text-xs font-semibold text-gray-600 mb-2 pb-2 border-b">
+                {hoveredPoints.length} cars at this position
+              </p>
+            )}
+
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {hoveredPoints.map((data, idx) => {
+                const hasValidKm =
+                  typeof data.kmRaw === 'number' && Number.isFinite(data.kmRaw) && data.kmRaw > 0
+                const listingYear = data.year ? parseInt(data.year) : undefined
+
+                const expectedPrice =
+                  pooledCoef && !data.isTarget && listingYear && hasValidKm
+                    ? calcPriceFromCoef(pooledCoef, listingYear, data.kmRaw!)
+                    : null
+
+                const pct =
+                  expectedPrice && expectedPrice > 0
+                    ? ((expectedPrice - data.price) / expectedPrice) * 100
+                    : null
+
+                return (
+                  <div key={`${idx}-${data.name || 'car'}`} className={idx > 0 ? 'pt-3 border-t' : ''}>
+                    {data.image_url && (
+                      <div className="mb-2 w-full h-32 sm:h-40 bg-gray-100 rounded overflow-hidden">
+                        <img
+                          src={data.image_url}
+                          alt={data.name || 'Car'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {data.name && (
+                      <p className="font-medium text-sm mb-1">
+                        {data.url ? (
+                          <a
+                            href={data.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            {data.name}
+                          </a>
+                        ) : (
+                          data.name
+                        )}
+                      </p>
+                    )}
+
+                    <div className="space-y-0.5">
+                      <p className="text-xs sm:text-sm">{`Driven: ${Math.round(
+                        data.kilometers
+                      ).toLocaleString()} km`}</p>
+                      <p className="text-xs sm:text-sm">{`Price: ${formatPrice(Math.round(data.price))}`}</p>
+                      {data.year && <p className="text-xs sm:text-sm">{`Year: ${data.year}`}</p>}
+                      {pct !== null && (
+                        <p className="mt-1 text-xs sm:text-sm">
+                          <span
+                            className={
+                              pct > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
+                            }
+                          >
+                            {Math.abs(pct).toFixed(1)}% {pct > 0 ? 'below' : 'above'} estimate
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}

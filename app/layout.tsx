@@ -5,6 +5,8 @@ import "./globals.css";
 import Script from "next/script";
 import CookieConsent from "@/components/CookieConsent";
 import Footer from "@/components/Footer";
+import { HeaderProvider } from "@/components/ClientHeader";
+import { AuthProvider } from "@/lib/auth-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,13 +19,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Car Price Analysis - Free Car Price Estimates & Market Analysis",
-  description: "Get accurate car price estimates and market analysis. Compare prices, find deals, and make informed decisions when buying or selling a car.",
-  keywords: ["car prices", "car valuation", "car market analysis", "used cars", "car price estimate"],
-  authors: [{ name: "Car Price Analysis" }],
+  title: "Allir Bilar - Find Your Perfect Car",
+  description: "Browse and search car listings. Get accurate car price estimates and market analysis. Save your favorite listings and searches.",
+  keywords: ["car prices", "car listings", "used cars", "car search", "car price estimate"],
+  authors: [{ name: "Allir Bilar" }],
   openGraph: {
-    title: "Car Price Analysis - Free Car Price Estimates",
-    description: "Get accurate car price estimates and market analysis",
+    title: "Allir Bilar - Find Your Perfect Car",
+    description: "Browse and search car listings with price analysis",
     type: "website",
   },
 };
@@ -77,11 +79,15 @@ export default function RootLayout({
         )}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
-        <div className="flex-1">
-          {children}
-        </div>
-        <Footer />
-        <CookieConsent />
+        <AuthProvider>
+          <HeaderProvider>
+            <div className="flex-1">
+              {children}
+            </div>
+          </HeaderProvider>
+          <Footer />
+          <CookieConsent />
+        </AuthProvider>
       </body>
     </html>
   );

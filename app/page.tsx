@@ -1,31 +1,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { CarSearchForm } from '@/components/CarSearchForm';
 import { PriceAnalysis } from '@/components/PriceAnalysis';
 import { CarDeals } from '@/components/CarDeals';
 import { SimilarCarList } from '@/components/SimilarCarList';
 import { CarListSearch } from '@/components/CarListSearch';
-import { SearchToggle } from '@/components/SearchToggle';
+import { HeroSection } from '@/components/HeroSection';
+import { PopularSearches } from '@/components/PopularSearches';
+import { RecentListings } from '@/components/RecentListings';
+import { SearchModeTabs } from '@/components/SearchModeTabs';
+import { DailyDealsWithButton } from '@/components/DailyDealsWithButton';
+import { useHeader } from '@/components/ClientHeader';
 import type { CarPricePoint, CarAnalysis, PriceModel } from '@/types/car';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
-import { DailyDeals } from '@/components/DailyDeals';
-// Tips system + button
+import { trackPageView, trackSearch } from '@/lib/analytics';
+// Tips system
 import { TipsSystem } from '@/components/ui/tips';
-import { TipsButton } from '@/components/ui/tipsbutton';
 import '@/app/tips.css';
 import { Suspense } from "react"; 
 
 // Minimal shape we read from Supabase for car_listings
 interface DbCarListing {
+  id: number;
   make: string;
   model: string;
+  display_make?: string;
+  display_name?: string;
   year: string;           // DB returns string; we parse to number where needed
   kilometers: number;
   price: number;
   url: string;
   scraped_at?: string;
+  image_url?: string;
+  source?: string;
 }
 
 // Normalize helpers
@@ -45,16 +55,64 @@ const normalizeOneWord = (s: string) =>
     .replace(/[^\w\s-]/g, '')
     .split(/\s+/)[0] ?? '';
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [analysis, setAnalysis] = useState<CarAnalysis | null>(null);
   const [makes, setMakes] = useState<Array<{ make_norm: string; display_make: string }>>([]);
   const [searchedYear, setSearchedYear] = useState<string | null>(null);
-  const [searchMode, setSearchMode] = useState<'analysis' | 'range'>('analysis');
   const [hasRangeResults, setHasRangeResults] = useState(false);
+  const [hasSearchedEver, setHasSearchedEver] = useState(false);
+  const { searchMode, setSearchMode } = useHeader();
+  const [lastSearch, setLastSearch] = useState<CarItem | null>(null);
+  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+
+  // Track page view on mount
+  useEffect(() => {
+    trackPageView('/');
+  }, []);
 
   useEffect(() => {
     fetchMakes();
   }, []);
+
+  // Handle URL parameters whenever they change
+  useEffect(() => {
+    const make = searchParams.get('make');
+    const model = searchParams.get('model');
+    const year = searchParams.get('year');
+    const kilometers = searchParams.get('kilometers');
+    const price = searchParams.get('price');
+    const mode = searchParams.get('mode');
+
+    // For range mode, we only need make (and possibly model)
+    // For analysis mode, we need make, model, and year
+    const isRangeMode = mode === 'range';
+    const hasRequiredParams = isRangeMode 
+      ? make 
+      : (make && model && year);
+
+    if (hasRequiredParams && !isLoadingFromUrl) {
+      // Set flag to prevent duplicate execution
+      setIsLoadingFromUrl(true);
+      
+      // Switch to appropriate mode
+      if (isRangeMode) {
+        setSearchMode('range');
+        // Note: Range search tracking happens in CarListSearch component
+      } else {
+        setSearchMode('analysis');
+        // Trigger search from URL parameters (tracking happens in handleSearch)
+        handleSearch({
+          make: make!,
+          model: model!,
+          year: year!,
+          kilometers: kilometers ? parseInt(kilometers) : 0,
+          price: price ? parseInt(price) : 0,
+        }, true);
+      }
+    }
+  }, [searchParams]);
 
   const fetchMakes = async () => {
     // Get makes from price_models first
@@ -84,6 +142,7 @@ export default function Home() {
       const { data: listingMakes, error: listingError } = await supabase
         .from('car_listings')
         .select('make')
+        .eq('is_active', true)
         .order('make', { ascending: true });
 
       if (!listingError && listingMakes) {
@@ -198,6 +257,7 @@ export default function Home() {
       .select('*')
       .ilike('make', make_norm)              // case-insensitive exact make
       .ilike('model', `%${modelPattern}%`)   // broad match on model
+      .eq('is_active', true)
       .not('year', 'is', null)
       .order('scraped_at', { ascending: false });
     if (error) {
@@ -207,9 +267,24 @@ export default function Home() {
     return (data ?? []) as DbCarListing[];
   };
 
-  const handleSearch = async (data: CarItem) => {
+  const handleSearch = async (data: CarItem, skipUrlUpdate = false) => {
     try {
       setSearchedYear(data.year ?? 'all');
+      setHasSearchedEver(true);
+      setLastSearch(data);
+
+      // Update URL with search parameters only if not triggered by URL change
+      if (!skipUrlUpdate) {
+        const params = new URLSearchParams();
+        params.set('make', data.make);
+        params.set('model', data.model);
+        params.set('year', data.year || 'all');
+        params.set('mode', 'analysis');
+        if (data.kilometers) params.set('kilometers', data.kilometers.toString());
+        if (data.price) params.set('price', data.price.toString());
+        
+        router.push(`/?${params.toString()}`, { scroll: false });
+      }
 
       // Normalize search terms
       const make_norm = data.make.toLowerCase().trim();
@@ -233,7 +308,22 @@ export default function Home() {
         }
       }
 
-      // Calculate estimated price using the regression model
+      // Track search analytics
+      trackSearch({
+        make: data.make,
+        model: data.model,
+        year: data.year,
+        make_norm: make_norm,
+        model_base: model_two,
+        results_count: similarCars.length,
+      });
+      
+      // Reset the URL loading flag after search completes
+      if (isLoadingFromUrl) {
+        setIsLoadingFromUrl(false);
+      }
+
+      // Calculate price if needed
       let price: number;
       if (data.year === 'all') {
         const validYears = similarCars
@@ -280,11 +370,14 @@ export default function Home() {
 
       // Format similar listings
       const similarListings: CarPricePoint[] = similarCars.map((car) => ({
+        id: car.id,
         kilometers: car.kilometers,
         price: car.price,
-        name: `${car.make} ${car.model}`,
+        name: `${car.display_make || car.make} ${car.display_name || car.model}`,
         year: car.year,
-        url: car.url
+        url: car.url,
+        image_url: car.image_url,
+        source: car.source
       }));
 
       // Target car point
@@ -313,120 +406,137 @@ export default function Home() {
 
   return (
     <main className="container mx-auto p-4">
+      {/* Hidden component to register "Find More Deals" with header */}
+      <div className="hidden">
+        <CarDeals onViewPriceAnalysis={handleSearch} />
+      </div>
+
       {/* Mount tips system once so it can show on first visit & be reopened by the button */}
       <TipsSystem
         mode={searchMode === 'range' ? 'search' : 'analysis'}
         hasSearched={searchMode === 'analysis' ? !!analysis : hasRangeResults}
       />
 
-      <h1 className="text-4xl font-bold mb-4 text-center">Car Price Scout</h1>
+      {/* Hero Section - Show only when no searches have been made in either mode */}
+      {!hasSearchedEver && (
+        <HeroSection />
+      )}
 
-      <div className={`flex flex-col ${searchMode === 'analysis' ? 'lg:flex-row' : ''} gap-4 min-h-[calc(100vh-8rem)] w-full`}>
-        {searchMode === "analysis" ? (
-          <>
-            {/* Analysis Mode: Two Column Layout */}
-            <div className="lg:w-1/2 lg:basis-1/2 space-y-4">
-              <div className="flex justify-between items-stretch w-full gap-4 mb-4">
-                <SearchToggle mode={searchMode} onModeChange={setSearchMode} />
-                <TipsButton
-                  resetSeen
-                  className="shrink-0 px-4 h-[42px]"
-                  variant="outline"
-                />
+      {/* Main Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Search & Analysis (2/3 width) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Search Mode Tabs + Search Components */}
+          <div>
+            {/* Tabs at top-left of search area */}
+            <div className="mb-0">
+              <SearchModeTabs mode={searchMode} onModeChange={setSearchMode} />
+            </div>
+
+            {/* Search Forms - Keep both mounted but show/hide to preserve state */}
+            <div className={searchMode === "analysis" ? "block" : "hidden"}>
+              <div className="space-y-6">
+                <CarSearchForm onSearch={handleSearch} makes={makes} />
+
+                {/* Conditional Content Based on Search State */}
+                {!analysis ? (
+                  <>
+                    {/* Before Search: Show Popular + Recent stacked */}
+                    <PopularSearches onSearch={handleSearch} />
+                    <RecentListings onViewAnalysis={handleSearch} />
+                  </>
+                ) : (
+                  <>
+                    {/* After Search: Show Analysis */}
+                    <PriceAnalysis
+                      analysis={analysis}
+                      searchedYear={searchedYear}
+                      searchParams={lastSearch || undefined}
+                      onYearChange={(year) => {
+                        const price = calculatePrice(
+                          analysis.priceModel.coef_json,
+                          year.toString(),
+                          analysis.targetCar.kilometers
+                        );
+                        setAnalysis({
+                          ...analysis,
+                          estimatedPrice: price,
+                          priceRange: {
+                            low: price - analysis.priceModel.rmse,
+                            high: price + analysis.priceModel.rmse,
+                          },
+                        });
+                      }}
+                    />
+                    
+                    {/* Similar Cars List */}
+                    <SimilarCarList
+                      analysis={analysis}
+                      searchedYear={searchedYear}
+                      onViewPriceAnalysis={handleSearch}
+                      onYearChange={(year) => {
+                        const price = calculatePrice(
+                          analysis.priceModel.coef_json,
+                          year.toString(),
+                          analysis.targetCar.kilometers
+                        );
+                        setAnalysis({
+                          ...analysis,
+                          estimatedPrice: price,
+                          priceRange: {
+                            low: price - analysis.priceModel.rmse,
+                            high: price + analysis.priceModel.rmse,
+                          },
+                        });
+                      }}
+                    />
+                  </>
+                )}
               </div>
-
-              <CarSearchForm onSearch={handleSearch} makes={makes} />
-
-              {analysis && (
-                <PriceAnalysis
-                  analysis={analysis}
-                  searchedYear={searchedYear}
-                  onYearChange={(year) => {
-                    const price = calculatePrice(
-                      analysis.priceModel.coef_json,
-                      year.toString(),
-                      analysis.targetCar.kilometers
-                    );
-                    setAnalysis({
-                      ...analysis,
-                      estimatedPrice: price,
-                      priceRange: {
-                        low: price - analysis.priceModel.rmse,
-                        high: price + analysis.priceModel.rmse,
-                      },
-                    });
-                  }}
-                />
-              )}
             </div>
 
-            <div className="lg:w-1/2 lg:basis-1/2 space-y-4 h-full">
-              <Suspense fallback={<div>Loading deals...</div>}>
-                <CarDeals onViewPriceAnalysis={handleSearch} />
-                <DailyDeals onViewPriceAnalysis={handleSearch} />
-              </Suspense>
-              {analysis && (
-                <SimilarCarList
-                  analysis={analysis}
-                  searchedYear={searchedYear}
-                  onYearChange={(year) => {
-                    const price = calculatePrice(
-                      analysis.priceModel.coef_json,
-                      year.toString(),
-                      analysis.targetCar.kilometers
-                    );
-                    setAnalysis({
-                      ...analysis,
-                      estimatedPrice: price,
-                      priceRange: {
-                        low: price - analysis.priceModel.rmse,
-                        high: price + analysis.priceModel.rmse,
-                      },
-                    });
-                  }}
-                />
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Range Mode: Top Split Layout */}
-            <div className="flex flex-col lg:flex-row gap-4 w-full">
-              <div className="lg:w-1/2 lg:basis-1/2">
-                <div className="flex justify-between items-stretch w-full gap-4">
-                  <SearchToggle mode={searchMode} onModeChange={setSearchMode} />
-                  <TipsButton
-                    resetSeen
-                    className="shrink-0 px-4 h-[42px]"
-                    variant="outline"
+            <div className={searchMode === "range" ? "block" : "hidden"}>
+              <div className="w-full space-y-6">
+                <Suspense fallback={<div>Loading search...</div>}>
+                  <CarListSearch
+                    makes={makes}
+                    onViewPriceAnalysis={(data) => {
+                      setSearchMode('analysis');
+                      handleSearch(data);
+                    }}
+                    onSearchStateChange={(hasResults) => {
+                      setHasRangeResults(hasResults);
+                      if (hasResults) setHasSearchedEver(true);
+                    }}
                   />
-                </div>
-              </div>
-
-              <div className="lg:w-1/2 lg:basis-1/2">
-                <Suspense fallback={<div>Loading deals...</div>}>
-                  <CarDeals onViewPriceAnalysis={handleSearch} />
                 </Suspense>
+                
+                {/* Show Recent Listings when no range search has been made yet */}
+                {!hasRangeResults && (
+                  <RecentListings onViewAnalysis={handleSearch} />
+                )}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Search Section: Full Width */}
-            <div className="w-full">
-              <Suspense fallback={<div>Loading search...</div>}>
-                <CarListSearch
-                  makes={makes}
-                  onViewPriceAnalysis={(data) => {
-                    setSearchMode('analysis');
-                    handleSearch(data);
-                  }}
-                  onSearchStateChange={setHasRangeResults}
-                />
-              </Suspense>
-            </div>
-          </>
-        )}
+        {/* Right Sidebar - Deals (1/3 width, sticky) */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-20 space-y-6">
+            <Suspense fallback={<div className="h-64 bg-slate-100 animate-pulse rounded-lg" />}>
+              <DailyDealsWithButton onViewPriceAnalysis={handleSearch} />
+            </Suspense>
+          </div>
+        </div>
       </div>
     </main>
   );
+}
 
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <HomeContent />
+    </Suspense>
+  );
 }

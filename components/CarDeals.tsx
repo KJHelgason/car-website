@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -6,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 import type { CarItem } from '@/types/form';
 import { X, RefreshCcw } from 'lucide-react';
+import { useHeader } from '@/components/ClientHeader';
 
 // ===== Types =====
 interface CarDeal {
@@ -16,6 +19,8 @@ interface CarDeal {
   kilometers: number | null;
   price: number;
   url?: string;
+  image_url?: string;
+  source?: string;
 }
 
 interface PriceModelRow {
@@ -64,10 +69,16 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
   const [bestDeals, setBestDeals] = useState<EnrichedWithEstimate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [preloaded, setPreloaded] = useState(false);
+  const { registerDealsDialog } = useHeader();
 
   // NEW: cache timestamp + TTL
   const [lastLoadedAt, setLastLoadedAt] = useState<number | null>(null);
   const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  // Register the openDeals function with the header (only once)
+  useEffect(() => {
+    registerDealsDialog(() => openDeals(false));
+  }, [registerDealsDialog]);
 
   // Preload data after initial render
   useEffect(() => {
@@ -142,6 +153,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
       const { data: cheapestData, error: cheapestError } = await supabase
         .from('car_listings')
         .select('*')
+        .eq('is_active', true)
         .gt('price', 50000)
         .not('make', 'is', null)
         .not('make', 'eq', '')
@@ -185,10 +197,11 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
         return modelMap.get(`${mk}|${mdBase}`) || makeMap.get(mk) || globalModel;
       };
 
-      // 3) Pool for “Best Deals”
+      // 3) Pool for "Best Deals"
       const { data: dealsData, error: dealsError } = await supabase
         .from('car_listings')
         .select('*')
+        .eq('is_active', true)
         .gt('price', 50000)
         .order('scraped_at', { ascending: false })
         .limit(200);
@@ -268,6 +281,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
           const { data } = await supabase
             .from('car_listings')
             .select('year')
+            .eq('is_active', true)
             .ilike('make', mk)
             .ilike('model', `%${mdBase}%`)
             .in('year', years);
@@ -306,13 +320,6 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
 
   return (
     <>
-      <Button
-        onClick={() => openDeals(false)}
-        className="w-full h-[42px]"
-      >
-        Find More Deals
-      </Button>
-
       <Dialog open={showDeals} onOpenChange={setShowDeals}>
         <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
           <DialogHeader className="px-6 py-4 flex items-center justify-between">
@@ -349,74 +356,105 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                       aria-label="Dismiss listing"
                       title="Dismiss listing"
                       onClick={() => dismissBestDeal(car.id)}
-                      className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 cursor-pointer"
+                      className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 cursor-pointer z-10"
                     >
                       <X className="h-4 w-4 text-gray-500" />
                     </button>
 
-                    <CardContent className="p-4">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <h4 className="font-semibold">
-                              {car.year ?? 'Unknown'} {car.make} {car.model}
-                            </h4>
-                            <p className="text-sm text-gray-600">
-                              {car.kilometers != null
-                                ? `${car.kilometers.toLocaleString()} km`
-                                : 'Unknown km'}
-                            </p>
-                            {typeof car.year === 'number' && car.year_n_samples != null && (
-                              <p className="text-xs text-gray-500">
-                                Based on {car.year_n_samples.toLocaleString()} cars from {car.year}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-lg">{formatPrice(car.price)}</p>
-                            <p className="text-sm text-green-600">
-                              {car.price_difference_percent.toFixed(1)}% below estimate
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Est: {formatPrice(car.estimated_price)}
-                            </p>
-                          </div>
+                    <CardContent className="p-0">
+                      <div className="flex gap-4">
+                        {/* Car Image */}
+                        <div className="w-32 h-32 flex-shrink-0 relative">
+                          {car.image_url ? (
+                            <img
+                              src={car.image_url}
+                              alt={`${car.year} ${car.make} ${car.model}`}
+                              className="w-full h-full object-cover rounded-l-lg"
+                              onError={(e) => {
+                                e.currentTarget.src = `https://placehold.co/200x200/e5e7eb/6b7280?text=${encodeURIComponent(car.make + ' ' + car.model)}`;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center rounded-l-lg">
+                              <span className="text-muted-foreground text-xs text-center px-2">
+                                {car.make} {car.model}
+                              </span>
+                            </div>
+                          )}
+                          {/* Facebook Icon - positioned at bottom-right */}
+                          {car.source === 'Facebook Marketplace' && (
+                            <div className="absolute bottom-1 right-1 z-10 bg-white rounded-full p-1 shadow-md">
+                              <svg className="w-3 h-3 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                              </svg>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex items-center justify-between gap-3">
-                          {car.url ? (
-                            <a
-                              href={car.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-600 hover:underline"
-                            >
-                              View Listing →
-                            </a>
-                          ) : (
-                            <span />
-                          )}
+                        {/* Car Details */}
+                        <div className="flex-1 p-4 flex flex-col gap-3">
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <h4 className="font-semibold">
+                                {car.year ?? 'Unknown'} {car.make} {car.model}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {car.kilometers != null
+                                  ? `${car.kilometers.toLocaleString()} km`
+                                  : 'Unknown km'}
+                              </p>
+                              {typeof car.year === 'number' && car.year_n_samples != null && (
+                                <p className="text-xs text-gray-500">
+                                  Based on {car.year_n_samples.toLocaleString()} cars from {car.year}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-lg">{formatPrice(car.price)}</p>
+                              <p className="text-sm text-green-600">
+                                {car.price_difference_percent.toFixed(1)}% below estimate
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Est: {formatPrice(car.estimated_price)}
+                              </p>
+                            </div>
+                          </div>
 
-                          <div className="flex gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="cursor-pointer"
-                              onClick={() => {
-                                if (!onViewPriceAnalysis) return;
-                                const payload: CarItem = {
-                                  make: car.make,
-                                  model: car.model, // full model; page.tsx normalizes
-                                  year: car.year ? car.year.toString() : 'all',
-                                  kilometers: car.kilometers ?? 0,
-                                  price: car.price,
-                                };
-                                onViewPriceAnalysis(payload);
-                                setShowDeals(false);
-                              }}
-                            >
-                              View Price Analysis
-                            </Button>
+                          <div className="flex items-center justify-between gap-3">
+                            {car.url ? (
+                              <a
+                                href={car.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                View Listing →
+                              </a>
+                            ) : (
+                              <span />
+                            )}
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  if (!onViewPriceAnalysis) return;
+                                  const payload: CarItem = {
+                                    make: car.make,
+                                    model: car.model, // full model; page.tsx normalizes
+                                    year: car.year ? car.year.toString() : 'all',
+                                    kilometers: car.kilometers ?? 0,
+                                    price: car.price,
+                                  };
+                                  onViewPriceAnalysis(payload);
+                                  setShowDeals(false);
+                                }}
+                              >
+                                View Price Analysis
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -435,36 +473,69 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                       aria-label="Dismiss listing"
                       title="Dismiss listing"
                       onClick={() => dismissCheapest(car.id)}
-                      className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 cursor-pointer"
+                      className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 cursor-pointer z-10"
                     >
                       <X className="h-4 w-4 text-gray-500" />
                     </button>
 
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <h4 className="font-semibold">
-                            {car.year ?? 'Unknown'} {car.make} {car.model}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {car.kilometers != null
-                              ? `${car.kilometers.toLocaleString()} km`
-                              : 'Unknown km'}
-                          </p>
+                    <CardContent className="p-0">
+                      <div className="flex gap-4">
+                        {/* Car Image */}
+                        <div className="w-32 h-32 flex-shrink-0 relative">
+                          {car.image_url ? (
+                            <img
+                              src={car.image_url}
+                              alt={`${car.year} ${car.make} ${car.model}`}
+                              className="w-full h-full object-cover rounded-l-lg"
+                              onError={(e) => {
+                                e.currentTarget.src = `https://placehold.co/200x200/e5e7eb/6b7280?text=${encodeURIComponent(car.make + ' ' + car.model)}`;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center rounded-l-lg">
+                              <span className="text-muted-foreground text-xs text-center px-2">
+                                {car.make} {car.model}
+                              </span>
+                            </div>
+                          )}
+                          {/* Facebook Icon - positioned at bottom-right */}
+                          {car.source === 'Facebook Marketplace' && (
+                            <div className="absolute bottom-1 right-1 z-10 bg-white rounded-full p-1 shadow-md">
+                              <svg className="w-3 h-3 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                              </svg>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg">{formatPrice(car.price)}</p>
+
+                        {/* Car Details */}
+                        <div className="flex-1 p-4 flex justify-between items-start gap-4">
+                          <div>
+                            <h4 className="font-semibold">
+                              {car.year ?? 'Unknown'} {car.make} {car.model}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              {car.kilometers != null
+                                ? `${car.kilometers.toLocaleString()} km`
+                                : 'Unknown km'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg">{formatPrice(car.price)}</p>
+                          </div>
                         </div>
                       </div>
                       {car.url && (
-                        <a
-                          href={car.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline block mt-2"
-                        >
-                          View Listing →
-                        </a>
+                        <div className="px-4 pb-4">
+                          <a
+                            href={car.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline"
+                          >
+                            View Listing →
+                          </a>
+                        </div>
                       )}
                     </CardContent>
                   </Card>

@@ -20,14 +20,19 @@ export interface CarListing {
   model: string;
   make_norm: string;
   model_base: string;
+  display_make?: string;
+  display_name?: string;
   year: string;
   kilometers: number;
   price: number;
   scraped_at: string;
   url?: string;
+  image_url?: string;
+  source?: string;
 }
 
 export interface CarPricePoint {
+  id?: number;
   kilometers: number;
   price: number;
   searchPrice?: number;
@@ -37,6 +42,8 @@ export interface CarPricePoint {
   year?: string;
   yearRange?: string;
   url?: string;
+  image_url?: string;
+  source?: string;
 }
 
 export interface CarAnalysis {

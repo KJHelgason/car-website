@@ -7,13 +7,13 @@ export default function About() {
         ← Back to Home
       </Link>
       
-      <h1 className="text-4xl font-bold mb-8">About Car Price Analysis</h1>
+      <h1 className="text-4xl font-bold mb-8">About Allir Bilar</h1>
       
       <div className="space-y-6 text-muted-foreground">
         <section>
           <h2 className="text-2xl font-semibold text-foreground mb-3">Our Mission</h2>
           <p>
-            Car Price Analysis was created to help car buyers and sellers make informed decisions by providing 
+            Allir Bilar was created to help car buyers and sellers make informed decisions by providing 
             transparent, data-driven insights into the automotive market. We believe that everyone should have 
             access to accurate pricing information when buying or selling a vehicle.
           </p>
@@ -87,7 +87,7 @@ export default function About() {
 
         <section className="border-t border-border pt-6 mt-8">
           <p className="text-sm">
-            Car Price Analysis is an independent service and is not affiliated with any car dealership, 
+            Allir Bilar is an independent service and is not affiliated with any car dealership, 
             manufacturer, or listing platform.
           </p>
         </section>
