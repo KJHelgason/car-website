@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
 
-const ADMIN_EMAILS = ['kjartandaniel01@gmail.com'];
+const ADMIN_EMAILS = [
+  'kjartandaniel01@gmail.com',
+  'maggipje@gmail.com'
+];
 
 export async function isAdmin(): Promise<boolean> {
   try {
