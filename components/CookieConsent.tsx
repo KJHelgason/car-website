@@ -35,7 +35,7 @@ export default function CookieConsent() {
       declineButtonText="Reject"
       cookieName="userCookieConsent"
       style={{
-        background: 'hsl(var(--background))',
+        background: 'hsl(var(--background), 1)',
         borderTop: '1px solid hsl(var(--border))',
         color: 'hsl(var(--foreground))',
         padding: '1rem',
