@@ -58,10 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    const redirectUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/`
+      : process.env.NEXT_PUBLIC_SITE_URL || 'https://allirbilar.is/';
+      
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: redirectUrl,
       },
     });
     return { error };
