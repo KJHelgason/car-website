@@ -38,16 +38,17 @@ export default function SoldCarsPage() {
   const fetchSoldCars = async () => {
     setLoading(true);
     try {
-      // Fetch cars marked as inactive (sold)
-      const { data, error } = await supabase
+      // Fetch cars marked as inactive (sold) with count
+      const { data, error, count } = await supabase
         .from('car_listings')
-        .select('make, model, year, price, kilometers, url, image_url, scraped_at')
+        .select('make, model, year, price, kilometers, url, image_url, scraped_at', { count: 'exact' })
         .eq('is_active', false)
         .not('make', 'is', null)
         .not('model', 'is', null)
         .not('year', 'is', null)
         .not('price', 'is', null)
         .order('scraped_at', { ascending: false })
+        .limit(1000);
 
       if (error) throw error;
 
@@ -56,8 +57,8 @@ export default function SoldCarsPage() {
 
       // Calculate statistics
       if (soldCarsData.length > 0) {
-        const totalSold = soldCarsData.length;
-        const averagePrice = soldCarsData.reduce((sum, car) => sum + car.price, 0) / totalSold;
+        const totalSold = count || soldCarsData.length; // Use the actual count from database
+        const averagePrice = soldCarsData.reduce((sum, car) => sum + car.price, 0) / soldCarsData.length;
 
         // Find most popular make and model
         const makeCounts = soldCarsData.reduce((acc, car) => {
