@@ -22,6 +22,7 @@ interface SoldCarStats {
   averagePrice: number;
   mostPopularMake: string;
   mostPopularModel: string;
+  earliestDate: string;
 }
 
 export default function SoldCarsPage() {
@@ -55,6 +56,17 @@ export default function SoldCarsPage() {
       const soldCarsData = (data || []) as SoldCar[];
       setSoldCars(soldCarsData);
 
+      // Get the earliest scraped_at date from all sold cars
+      const { data: earliestData } = await supabase
+        .from('car_listings')
+        .select('scraped_at')
+        .eq('is_active', false)
+        .not('scraped_at', 'is', null)
+        .order('scraped_at', { ascending: true })
+        .limit(1);
+
+      const earliestDate = earliestData?.[0]?.scraped_at || soldCarsData[soldCarsData.length - 1]?.scraped_at || new Date().toISOString();
+
       // Calculate statistics
       if (soldCarsData.length > 0) {
         const totalSold = count || soldCarsData.length; // Use the actual count from database
@@ -80,6 +92,7 @@ export default function SoldCarsPage() {
           averagePrice,
           mostPopularMake,
           mostPopularModel,
+          earliestDate,
         });
       }
     } catch (error) {
@@ -146,6 +159,9 @@ export default function SoldCarsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalSold.toLocaleString()}</div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Since {new Date(stats.earliestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
               </CardContent>
             </Card>
 
