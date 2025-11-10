@@ -2,33 +2,36 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, Search, Zap, BarChart3 } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 
 export function HeroSection() {
+  const { t } = useLanguage();
+  
   return (
     <div className="mb-6">
       {/* Hero Banner */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white rounded-xl p-8 md:p-12 mb-6 shadow-lg">
         <div className="max-w-3xl">
           <h1 className="text-3xl md:text-5xl font-bold mb-4">
-            Find Your Perfect Car Deal
+            {t('hero.title')}
           </h1>
           <p className="text-lg md:text-xl text-blue-100 mb-8">
-            Get accurate price estimates, discover the best deals, and make informed decisions with our AI-powered analysis
+            {t('hero.subtitle')}
           </p>
           
           {/* Feature Pills */}
           <div className="flex flex-wrap gap-3">
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">ML Price Estimates</span>
+              <span className="text-sm font-medium">{t('hero.mlPriceEstimates')}</span>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <Zap className="h-4 w-4" />
-              <span className="text-sm font-medium">Daily Deals</span>
+              <span className="text-sm font-medium">{t('hero.dailyDeals')}</span>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <Search className="h-4 w-4" />
-              <span className="text-sm font-medium">10,000+ Listings</span>
+              <span className="text-sm font-medium">{t('hero.listings')}</span>
             </div>
           </div>
         </div>
@@ -44,7 +47,7 @@ export function HeroSection() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-slate-900">10K+</div>
-                <div className="text-xs text-slate-500">Active Listings</div>
+                <div className="text-xs text-slate-500">{t('common.activeListings')}</div>
               </div>
             </div>
           </CardContent>
@@ -58,7 +61,7 @@ export function HeroSection() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-slate-900">90%</div>
-                <div className="text-xs text-slate-500">Coverage</div>
+                <div className="text-xs text-slate-500">{t('hero.coverage')}</div>
               </div>
             </div>
           </CardContent>
@@ -72,7 +75,7 @@ export function HeroSection() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-slate-900">50+</div>
-                <div className="text-xs text-slate-500">Car Makes</div>
+                <div className="text-xs text-slate-500">{t('hero.carMakes')}</div>
               </div>
             </div>
           </CardContent>
@@ -86,7 +89,7 @@ export function HeroSection() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-slate-900">Daily</div>
-                <div className="text-xs text-slate-500">Updates</div>
+                <div className="text-xs text-slate-500">{t('hero.dailyUpdates')}</div>
               </div>
             </div>
           </CardContent>

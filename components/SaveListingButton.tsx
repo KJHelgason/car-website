@@ -5,6 +5,7 @@ import { Heart } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { saveListing, removeSavedListing, isListingSaved } from '@/lib/saved-items';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/lib/language-context';
 
 interface SaveListingButtonProps {
   listingId?: number;
@@ -14,6 +15,7 @@ interface SaveListingButtonProps {
 
 export function SaveListingButton({ listingId, className, size = 'md' }: SaveListingButtonProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +39,7 @@ export function SaveListingButton({ listingId, className, size = 'md' }: SaveLis
 
     if (!user || !listingId) {
       // Could show a login modal here
-      alert('Please log in to save listings');
+      alert(t('saved.loginToSave'));
       return;
     }
 

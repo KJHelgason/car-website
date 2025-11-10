@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { TrendingDown, DollarSign, Package, BarChart3 } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 
 interface SoldCar {
   make: string;
@@ -26,6 +27,7 @@ interface SoldCarStats {
 }
 
 export default function SoldCarsPage() {
+  const { t } = useLanguage();
   const [soldCars, setSoldCars] = useState<SoldCar[]>([]);
   const [stats, setStats] = useState<SoldCarStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,10 +142,10 @@ export default function SoldCarsPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
             <TrendingDown className="h-8 w-8 text-red-600" />
-            Sold Cars
+            {t('sold.title')}
           </h1>
           <p className="text-slate-600 mt-2">
-            Historical data on cars that have been sold or are no longer listed
+            {t('sold.subtitle')}
           </p>
         </div>
 
@@ -154,13 +156,13 @@ export default function SoldCarsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  Total Sold
+                  {t('sold.totalSold')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalSold.toLocaleString()}</div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Since {new Date(stats.earliestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {t('sold.since')} {new Date(stats.earliestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
               </CardContent>
             </Card>
@@ -169,7 +171,7 @@ export default function SoldCarsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Average Price
+                  {t('sold.averagePrice')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -181,7 +183,7 @@ export default function SoldCarsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
                   <TrendingDown className="h-4 w-4" />
-                  Most Popular
+                  {t('sold.mostPopular')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -199,7 +201,7 @@ export default function SoldCarsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <TrendingDown className="h-5 w-5" />
-                  Cars Sold Over Time
+                  {t('sold.carsSoldOverTime')}
                 </CardTitle>
                 <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
                   <button
@@ -210,7 +212,7 @@ export default function SoldCarsPage() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Daily
+                    {t('sold.daily')}
                   </button>
                   <button
                     onClick={() => setTimePeriod('weekly')}
@@ -220,7 +222,7 @@ export default function SoldCarsPage() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Weekly
+                    {t('sold.weekly')}
                   </button>
                   <button
                     onClick={() => setTimePeriod('monthly')}
@@ -230,7 +232,7 @@ export default function SoldCarsPage() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Monthly
+                    {t('sold.monthly')}
                   </button>
                 </div>
               </div>
@@ -383,7 +385,7 @@ export default function SoldCarsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
-                  Top Selling Makes
+                  {t('sold.topSellingMakes')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col justify-end">
@@ -432,7 +434,7 @@ export default function SoldCarsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Price Distribution
+                  {t('sold.priceDistribution')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col justify-end">
@@ -464,7 +466,7 @@ export default function SoldCarsPage() {
                       <>
                         {/* Y-axis label */}
                         <div className="absolute -left-8 top-1/2 -translate-y-1/2 -rotate-90 text-sm font-semibold text-slate-600">
-                          Number of Cars
+                          {t('sold.numberOfCars')}
                         </div>
                         
                         {/* Horizontal grid lines */}
@@ -517,7 +519,7 @@ export default function SoldCarsPage() {
                         
                         {/* X-axis label - positioned absolutely at bottom */}
                         <div className="absolute bottom-0 left-0 right-0 text-center text-sm font-semibold text-slate-600">
-                          Price Range
+                          {t('sold.priceRange')}
                         </div>
                       </>
                     );
@@ -531,7 +533,7 @@ export default function SoldCarsPage() {
         {/* Sold Cars List */}
         <Card>
           <CardHeader>
-            <CardTitle>Recently Sold Vehicles</CardTitle>
+            <CardTitle>{t('sold.recentlySold')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -570,7 +572,7 @@ export default function SoldCarsPage() {
 
                   {/* Sold Badge */}
                   <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">
-                    SOLD
+                    {t('sold.soldBadge')}
                   </div>
 
                   {/* Car Info */}
@@ -590,12 +592,12 @@ export default function SoldCarsPage() {
                         </h3>
                       </a>
                       <p className="text-sm text-gray-600">
-                        {car.kilometers ? `${car.kilometers.toLocaleString()} km` : 'Unknown km'}
+                        {car.kilometers ? `${car.kilometers.toLocaleString()} km` : t('sold.unknownKm')}
                       </p>
                     </div>
 
                     <div className="space-y-1 text-xs text-gray-500">
-                      <p>Listed: {formatDate(car.scraped_at)}</p>
+                      <p>{t('sold.listed')}: {formatDate(car.scraped_at)}</p>
                     </div>
                   </div>
 
@@ -613,7 +615,7 @@ export default function SoldCarsPage() {
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 hover:underline"
                       >
-                        View archived listing
+                        {t('sold.viewArchived')}
                       </a>
                     </div>
                   )}
@@ -625,14 +627,14 @@ export default function SoldCarsPage() {
             {visibleCount < soldCars.length && (
               <div className="flex justify-center mt-6">
                 <Button onClick={loadMore} variant="outline">
-                  Load More ({soldCars.length - visibleCount} remaining)
+                  {t('sold.loadMore')} ({soldCars.length - visibleCount} {t('sold.remaining')})
                 </Button>
               </div>
             )}
 
             {soldCars.length === 0 && (
               <div className="text-center py-12 text-slate-500">
-                No sold cars found in the database.
+                {t('sold.noSoldCars')}
               </div>
             )}
           </CardContent>

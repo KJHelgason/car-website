@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useLanguage } from '@/lib/language-context';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Heart, Search, LogOut, TrendingDown, Shield } from 'lucide-react';
+import { User, Heart, Search, LogOut, TrendingDown, Shield, Globe } from 'lucide-react';
 import { TipsButton } from '@/components/ui/tipsbutton';
 import { SavedSearchesDropdown } from '@/components/SavedSearchesDropdown';
 import { SavedListingsDropdown } from '@/components/SavedListingsDropdown';
@@ -20,6 +21,7 @@ import { isAdmin } from '@/lib/admin';
 
 export default function Header() {
   const { user, signOut, loading } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
   const isHomePage = pathname === '/';
@@ -66,7 +68,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
                   <Search className="h-4 w-4" />
-                  <span className="hidden sm:inline">Saved Searches</span>
+                  <span className="hidden sm:inline">{t('header.savedSearches')}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="p-0">
@@ -79,7 +81,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
                   <Heart className="h-4 w-4" />
-                  <span className="hidden sm:inline">Saved</span>
+                  <span className="hidden sm:inline">{t('header.saved')}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="p-0">
@@ -90,9 +92,21 @@ export default function Header() {
             <Link href="/sold-cars">
               <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
                 <TrendingDown className="h-4 w-4" />
-                <span className="hidden md:inline">Sold Cars</span>
+                <span className="hidden md:inline">{t('header.sold')}</span>
               </Button>
             </Link>
+            
+            {/* Language Switcher */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLanguage(language === 'en' ? 'is' : 'en')}
+              className="gap-2 cursor-pointer"
+              title={language === 'en' ? 'Switch to Icelandic' : 'Skipta yfir á ensku'}
+            >
+              <Globe className="h-4 w-4" />
+              <span className="font-semibold">{language === 'en' ? 'IS' : 'EN'}</span>
+            </Button>
             
             {loading ? (
               <div className="w-20 h-9 bg-muted animate-pulse rounded" />
@@ -109,13 +123,13 @@ export default function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/saved-listings" className="cursor-pointer">
                         <Heart className="h-4 w-4 mr-2" />
-                        Saved Listings
+                        {t('header.saved')}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/saved-searches" className="cursor-pointer">
                         <Search className="h-4 w-4 mr-2" />
-                        Saved Searches
+                        {t('header.savedSearches')}
                       </Link>
                     </DropdownMenuItem>
                     {adminStatus && (
@@ -124,7 +138,7 @@ export default function Header() {
                         <DropdownMenuItem asChild>
                           <Link href="/admin" className="cursor-pointer text-blue-600 font-semibold">
                             <Shield className="h-4 w-4 mr-2" />
-                            Admin Panel
+                            {t('header.admin')}
                           </Link>
                         </DropdownMenuItem>
                       </>
@@ -132,7 +146,7 @@ export default function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
                       <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
+                      {t('header.logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -141,12 +155,12 @@ export default function Header() {
               <>
                 <Link href="/login">
                   <Button variant="ghost" size="sm" className="cursor-pointer">
-                    Log In
+                    {t('header.login')}
                   </Button>
                 </Link>
                 <Link href="/signup">
                   <Button size="sm" className="cursor-pointer">
-                    Sign Up
+                    {t('header.signup')}
                   </Button>
                 </Link>
               </>

@@ -7,6 +7,7 @@ import CookieConsent from "@/components/CookieConsent";
 import Footer from "@/components/Footer";
 import { HeaderProvider } from "@/components/ClientHeader";
 import { AuthProvider } from "@/lib/auth-context";
+import { LanguageProvider } from "@/lib/language-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -80,13 +81,15 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
         <AuthProvider>
-          <HeaderProvider>
-            <div className="flex-1">
-              {children}
-            </div>
-          </HeaderProvider>
-          <Footer />
-          <CookieConsent />
+          <LanguageProvider>
+            <HeaderProvider>
+              <div className="flex-1">
+                {children}
+              </div>
+            </HeaderProvider>
+            <Footer />
+            <CookieConsent />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

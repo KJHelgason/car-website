@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { SaveListingButton } from '@/components/SaveListingButton';
+import { useLanguage } from '@/lib/language-context';
 
 type CoefJson = {
   intercept: number;
@@ -75,6 +76,7 @@ const estimateFromCoef = (coef: CoefJson, yearNum: number, km: number): number =
 };
 
 export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPriceAnalysis }: SimilarCarListProps) {
+  const { t } = useLanguage();
   const { similarListings, priceModel } = analysis;
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -213,7 +215,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
     <Card id="similar-cars" className="w-full h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
-          <CardTitle>Similar Cars</CardTitle>
+          <CardTitle>{t('similar.title')}</CardTitle>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -234,7 +236,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
               ) : (
                 <ArrowUpNarrowWide className="h-4 w-4" />
               )}
-              <span className="ml-2">Value</span>
+              <span className="ml-2">{t('similar.sortByValue')}</span>
             </Button>
             <Button
               variant="outline"
@@ -255,7 +257,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
               ) : (
                 <ArrowUpAZ className="h-4 w-4" />
               )}
-              <span className="ml-2">Price</span>
+              <span className="ml-2">{t('similar.sortByPrice')}</span>
             </Button>
           </div>
         </div>
@@ -270,7 +272,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
           }}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select Year" />
+            <SelectValue placeholder={t('search.selectYear')} />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

@@ -1,6 +1,10 @@
+'use client';
+
 import Link from 'next/link';
+import { useLanguage } from '@/lib/language-context';
 
 export default function Footer() {
+  const { t } = useLanguage();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -11,27 +15,27 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold text-lg mb-3">Allir Bilar</h3>
             <p className="text-sm text-muted-foreground">
-              Your trusted source for car listings and price analysis.
+              {t('footer.tagline')}
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-semibold text-lg mb-3">Quick Links</h3>
+            <h3 className="font-semibold text-lg mb-3">{t('footer.quickLinks')}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
-                  Home
+                  {t('footer.home')}
                 </Link>
               </li>
               <li>
                 <Link href="/about" className="text-muted-foreground hover:text-primary transition-colors">
-                  About Us
+                  {t('footer.about')}
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="text-muted-foreground hover:text-primary transition-colors">
-                  Contact
+                  {t('footer.contact')}
                 </Link>
               </li>
             </ul>
@@ -39,16 +43,16 @@ export default function Footer() {
 
           {/* Legal */}
           <div>
-            <h3 className="font-semibold text-lg mb-3">Legal</h3>
+            <h3 className="font-semibold text-lg mb-3">{t('footer.legal')}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/privacy-policy" className="text-muted-foreground hover:text-primary transition-colors">
-                  Privacy Policy
+                  {t('footer.privacyPolicy')}
                 </Link>
               </li>
               <li>
                 <Link href="/terms" className="text-muted-foreground hover:text-primary transition-colors">
-                  Terms of Service
+                  {t('footer.termsOfService')}
                 </Link>
               </li>
             </ul>
@@ -64,13 +68,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-border mt-8 pt-6 text-center text-sm text-muted-foreground">
-          <p>&copy; {currentYear} Allir Bilar. All rights reserved.</p>
-          <p className="mt-2">
-            This site uses cookies to enhance your experience.{' '}
-            <Link href="/privacy-policy" className="text-primary hover:underline">
-              Learn more
-            </Link>
-          </p>
+          <p>&copy; {currentYear} Allir Bilar. {t('footer.allRightsReserved')}</p>
         </div>
       </div>
     </footer>

@@ -7,9 +7,11 @@ import type { SavedSearch } from '@/types/saved';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Search, Calendar, DollarSign } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 
 export function SavedSearchesDropdown() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,8 +56,8 @@ export function SavedSearchesDropdown() {
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
         <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p>No saved searches yet</p>
-        <p className="text-xs mt-1">Search for cars and save them for later</p>
+        <p>{t('saved.noSavedSearches')}</p>
+        <p className="text-xs mt-1">{t('saved.searchForCars')}</p>
       </div>
     );
   }

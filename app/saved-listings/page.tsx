@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Heart, TrendingUp, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/lib/language-context';
 
 export default function SavedListingsPage() {
+  const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [listings, setListings] = useState<SavedListing[]>([]);
@@ -38,7 +40,7 @@ export default function SavedListingsPage() {
   };
 
   const handleRemove = async (listingId: number) => {
-    if (!user || !confirm('Remove this listing from saved?')) return;
+    if (!user || !confirm(t('saved.removeConfirm'))) return;
 
     setRemovingId(listingId);
     const result = await removeSavedListing(user.id, listingId);
@@ -47,7 +49,7 @@ export default function SavedListingsPage() {
     if (result.success) {
       setListings((prev) => prev.filter((l) => l.listing_id !== listingId));
     } else {
-      alert('Failed to remove listing: ' + result.error);
+      alert(`${t('saved.removeFailed')}: ${result.error}`);
     }
   };
 
@@ -70,7 +72,7 @@ export default function SavedListingsPage() {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle>Saved Listings</CardTitle>
+            <CardTitle>{t('saved.savedListingsTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -95,10 +97,10 @@ export default function SavedListingsPage() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Heart className="h-5 w-5" />
-              Saved Listings
+              {t('saved.savedListingsTitle')}
             </CardTitle>
             <span className="text-sm text-muted-foreground">
-              {listings.length} {listings.length === 1 ? 'listing' : 'listings'}
+              {listings.length} {listings.length === 1 ? t('saved.listing') : t('saved.listings')}
             </span>
           </div>
         </CardHeader>
@@ -106,12 +108,12 @@ export default function SavedListingsPage() {
           {listings.length === 0 ? (
             <div className="text-center py-12">
               <Heart className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No saved listings yet</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('saved.noSavedListings')}</h3>
               <p className="text-muted-foreground mb-4">
-                Click the heart icon on any listing to save it
+                {t('saved.clickHeart')}
               </p>
               <Link href="/">
-                <Button>Browse Listings</Button>
+                <Button>{t('saved.browseListings')}</Button>
               </Link>
             </div>
           ) : (
@@ -154,7 +156,7 @@ export default function SavedListingsPage() {
                           <Link href={listing.url} target="_blank" rel="noopener noreferrer">
                             <Button variant="outline" size="sm" className="w-full gap-2">
                               <ExternalLink className="h-4 w-4" />
-                              View Listing
+                              {t('saved.viewListing')}
                             </Button>
                           </Link>
                         )}
@@ -163,7 +165,7 @@ export default function SavedListingsPage() {
                           <Link href={`/?make=${listing.make}&model=${listing.model}&year=${listing.year}`}>
                             <Button variant="outline" size="sm" className="w-full gap-2">
                               <TrendingUp className="h-4 w-4" />
-                              Analyze Price
+                              {t('saved.analyzePrice')}
                             </Button>
                           </Link>
                         )}
@@ -176,7 +178,7 @@ export default function SavedListingsPage() {
                           className="text-destructive hover:text-destructive w-full"
                         >
                           <Heart className="h-4 w-4 mr-2 fill-current" />
-                          Remove
+                          {t('saved.remove')}
                         </Button>
                       </div>
                     </div>

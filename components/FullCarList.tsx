@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownNarrowWide, ArrowUpNarrowWide, Calendar } from 'lucide-react';
 import type { CarItem } from '@/types/form';
 import { SaveListingButton } from '@/components/SaveListingButton';
+import { useLanguage } from '@/lib/language-context';
 
 interface CarListItem {
     id: number;
@@ -30,6 +31,7 @@ interface FullCarListProps {
 }
 
 export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullCarListProps) {
+    const { t } = useLanguage();
     const PAGE_SIZE = 32;
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -145,7 +147,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                             }}
                             className={`px-2 ${activeSorts.some(s => s.field === 'year') ? 'bg-blue-50' : ''}`}
                         >
-                            <span>Year</span>
+                            <span>{t('search.year')}</span>
                             {activeSorts.some(s => s.field === 'year') && (
                                 <span className="ml-1">
                                     {activeSorts.find(s => s.field === 'year')?.order === 'desc' ? '↓' : '↑'}
@@ -180,7 +182,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                             ) : (
                                 <ArrowUpNarrowWide className="h-4 w-4" />
                             )}
-                            <span className="ml-2">Price {activeSorts.findIndex(s => s.field === 'price') + 1 || ''}</span>
+                            <span className="ml-2">{t('search.price')} {activeSorts.findIndex(s => s.field === 'price') + 1 || ''}</span>
                         </Button>
                         
                         <Button
@@ -235,7 +237,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                             ) : (
                                 <ArrowUpAZ className="h-4 w-4" />
                             )}
-                            <span className="ml-2">Name {activeSorts.findIndex(s => s.field === 'name') + 1 || ''}</span>
+                            <span className="ml-2">{t('common.name')} {activeSorts.findIndex(s => s.field === 'name') + 1 || ''}</span>
                         </Button>
 
                         <Button
@@ -333,13 +335,13 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                                         </h3>
                                     </a>
                                     <p className="text-sm text-gray-600">
-                                        {car.kilometers ? `${car.kilometers.toLocaleString()} km` : 'Unknown km'}
+                                        {car.kilometers ? `${car.kilometers.toLocaleString()} ${t('common.km')}` : t('analysis.unknownKm')}
                                     </p>
                                 </div>
                                 
                                 {car.scraped_at && (
                                     <p className="text-xs text-gray-400">
-                                        Listed: {new Date(car.scraped_at).toLocaleDateString()}
+                                        {t('common.listed')}: {new Date(car.scraped_at).toLocaleDateString()}
                                     </p>
                                 )}
                             </div>
@@ -364,7 +366,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                                             rel="noopener noreferrer"
                                             className="text-sm text-blue-600 hover:underline"
                                         >
-                                            View listing
+                                            {t('card.viewListing')}
                                         </a>
                                     )}
                                     {onViewPriceAnalysis && (
@@ -384,7 +386,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                                             }}
                                             className="ml-auto"
                                         >
-                                            Analyze Price
+                                            {t('search.analyze')}
                                         </Button>
                                     )}
                                 </div>
@@ -401,7 +403,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                     >
                         {isLoading && (
                             <div className="text-sm text-slate-500">
-                                Loading more...
+                                {t('common.loadingMore')}
                             </div>
                         )}
                     </div>
@@ -410,7 +412,7 @@ export function FullCarList({ listings, onViewPriceAnalysis, totalCount }: FullC
                 {/* Show total count */}
                 {visibleCount >= listings.length && listings.length > 0 && (
                     <div className="text-center mt-4 py-4 text-sm text-slate-500">
-                        Showing all {listings.length} results
+                        {t('common.showingAll', { count: listings.length })}
                     </div>
                 )}
             </div>

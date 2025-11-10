@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, Search } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 
 interface SavedSearch {
   id: string;
@@ -28,6 +29,7 @@ interface SavedSearch {
 }
 
 export default function SavedSearchesPage() {
+  const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [searches, setSearches] = useState<SavedSearch[]>([]);
@@ -95,7 +97,7 @@ export default function SavedSearchesPage() {
   if (authLoading || loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">Saved Searches</h1>
+        <h1 className="text-3xl font-bold mb-6">{t('saved.savedSearchesTitle')}</h1>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
@@ -107,15 +109,15 @@ export default function SavedSearchesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Saved Searches</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('saved.savedSearchesTitle')}</h1>
       
       {searches.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground text-lg mb-4">
-            You haven&apos;t saved any searches yet.
+            {t('saved.noSearchesYet')}
           </p>
           <Link href="/" className="text-primary hover:underline">
-            Create a search to get started
+            {t('saved.createSearch')}
           </Link>
         </div>
       ) : (
@@ -137,21 +139,21 @@ export default function SavedSearchesPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                  <p><strong>Mode:</strong> {search.search_mode === 'analysis' ? 'Price Analysis' : 'Range Search'}</p>
-                  {search.make && <p><strong>Make:</strong> {search.make}</p>}
-                  {search.model && <p><strong>Model:</strong> {search.model}</p>}
-                  {search.year && <p><strong>Year:</strong> {search.year}</p>}
+                  <p><strong>{t('saved.mode')}:</strong> {search.search_mode === 'analysis' ? t('saved.priceAnalysis') : t('saved.rangeSearch')}</p>
+                  {search.make && <p><strong>{t('saveSearch.make')}:</strong> {search.make}</p>}
+                  {search.model && <p><strong>{t('saveSearch.model')}:</strong> {search.model}</p>}
+                  {search.year && <p><strong>{t('search.year')}:</strong> {search.year}</p>}
                   {(search.min_year || search.max_year) && (
-                    <p><strong>Year Range:</strong> {search.min_year || 'Any'} - {search.max_year || 'Any'}</p>
+                    <p><strong>{t('saved.yearRange')}:</strong> {search.min_year || t('saved.any')} - {search.max_year || t('saved.any')}</p>
                   )}
                   {(search.min_price || search.max_price) && (
-                    <p><strong>Price Range:</strong> {search.min_price || 'Any'} - {search.max_price || 'Any'}</p>
+                    <p><strong>{t('saved.priceRange')}:</strong> {search.min_price || t('saved.any')} - {search.max_price || t('saved.any')}</p>
                   )}
                 </div>
                 <Button variant="outline" size="sm" className="w-full gap-2" asChild>
                   <Link href={buildSearchUrl(search)}>
                     <Search className="h-4 w-4" />
-                    Run Search
+                    {t('saved.runSearch')}
                   </Link>
                 </Button>
               </CardContent>

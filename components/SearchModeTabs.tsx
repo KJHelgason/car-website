@@ -1,6 +1,7 @@
 'use client';
 
 import { TrendingUp, Search } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 
 interface SearchModeTabsProps {
   mode: 'analysis' | 'range';
@@ -8,6 +9,8 @@ interface SearchModeTabsProps {
 }
 
 export function SearchModeTabs({ mode, onModeChange }: SearchModeTabsProps) {
+  const { t } = useLanguage();
+  
   return (
     <div className="flex gap-1 mb-0">
       <button
@@ -21,8 +24,8 @@ export function SearchModeTabs({ mode, onModeChange }: SearchModeTabsProps) {
         `}
       >
         <TrendingUp className="h-4 w-4" />
-        <span className="hidden sm:inline">Price Analysis</span>
-        <span className="sm:hidden">Analysis</span>
+        <span className="hidden sm:inline">{t('tabs.priceAnalysis')}</span>
+        <span className="sm:hidden">{t('tabs.analysis')}</span>
       </button>
       
       <button
@@ -36,8 +39,8 @@ export function SearchModeTabs({ mode, onModeChange }: SearchModeTabsProps) {
         `}
       >
         <Search className="h-4 w-4" />
-        <span className="hidden sm:inline">Search Listings</span>
-        <span className="sm:hidden">Range</span>
+        <span className="hidden sm:inline">{t('tabs.searchListings')}</span>
+        <span className="sm:hidden">{t('tabs.rangeSearch')}</span>
       </button>
     </div>
   );

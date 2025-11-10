@@ -5,12 +5,14 @@ import { Button } from './ui/button';
 import { Zap } from 'lucide-react';
 import { useHeader } from './ClientHeader';
 import type { CarItem } from '@/types/form';
+import { useLanguage } from '@/lib/language-context';
 
 interface DailyDealsWithButtonProps {
   onViewPriceAnalysis?: (data: CarItem) => void;
 }
 
 export function DailyDealsWithButton({ onViewPriceAnalysis }: DailyDealsWithButtonProps) {
+  const { t } = useLanguage();
   const { openDealsDialog } = useHeader();
 
   return (
@@ -21,7 +23,7 @@ export function DailyDealsWithButton({ onViewPriceAnalysis }: DailyDealsWithButt
         className="cursor-pointer w-full gap-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
       >
         <Zap className="h-4 w-4" />
-        Find More Deals
+        {t('deals.findMoreDeals')}
       </Button>
       <DailyDeals onViewPriceAnalysis={onViewPriceAnalysis} />
     </div>

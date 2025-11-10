@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp } from 'lucide-react';
 import type { CarItem } from '@/types/form';
+import { useLanguage } from '@/lib/language-context';
 
 interface PopularSearchesProps {
   onSearch: (data: CarItem) => void;
@@ -21,6 +22,8 @@ const popularCars = [
 ];
 
 export function PopularSearches({ onSearch }: PopularSearchesProps) {
+  const { t } = useLanguage();
+  
   return (
     <Card className="border shadow-sm gap-0">
       <CardHeader className="pb-3">
@@ -28,7 +31,7 @@ export function PopularSearches({ onSearch }: PopularSearchesProps) {
           <div className="p-2 bg-orange-100 rounded-lg">
             <TrendingUp className="h-4 w-4 text-orange-600" />
           </div>
-          Popular Searches
+          {t('common.popularSearches')}
         </CardTitle>
       </CardHeader>
       <CardContent>

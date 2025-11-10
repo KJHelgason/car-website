@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { CarItem } from '@/types/form';
 import { formatPriceDifference } from '@/lib/utils';
 import { SaveListingButton } from '@/components/SaveListingButton';
+import { useLanguage } from '@/lib/language-context';
 
 interface DailyDealRow {
   id: number;              // daily_deals.id
@@ -66,6 +67,7 @@ export function DailyDeals({
   limit = 6,
   onViewPriceAnalysis,
 }: DailyDealsProps) {
+  const { t } = useLanguage();
   const [deals, setDeals] = useState<DailyDealRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function DailyDeals({
       setDeals(rows);
     } catch (e) {
       console.error(e);
-      setErr('Failed to load daily deals.');
+      setErr(t('analysis.failedToLoad'));
       setDeals([]);
     } finally {
       setLoading(false);
@@ -137,7 +139,7 @@ export function DailyDeals({
     <Card className="w-full">
       <CardHeader>
         <div className="flex items-center">
-          <CardTitle>Daily Deals</CardTitle>
+          <CardTitle>{t('deals.dailyDeals')}</CardTitle>
           {hasDeals && (
             <span className="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
               Curated
@@ -167,7 +169,7 @@ export function DailyDeals({
           {!loading && !hasDeals && (
             <div className="rounded-lg border p-4 sm:col-span-2 lg:col-span-1">
               <p className="text-sm text-slate-600">
-                {err ?? 'No standout deals were found.'}
+                {err ?? t('deals.noDeals')}
               </p>
             </div>
           )}
@@ -230,20 +232,20 @@ export function DailyDeals({
                         }}
                       >
                         <h4 className="font-semibold text-sm leading-tight line-clamp-2">
-                          {d.year ?? 'Unknown'} {d.display_make || d.make} {d.display_name || d.model}
+                          {d.year ?? t('common.unknown')} {d.display_make || d.make} {d.display_name || d.model}
                         </h4>
                       </a>
                       <p className="text-xs text-slate-600 mt-1 truncate">
                         {typeof d.kilometers === 'number'
-                          ? `${d.kilometers.toLocaleString()} km`
-                          : 'Unknown km'}
+                          ? `${d.kilometers.toLocaleString()} ${t('common.km')}`
+                          : t('analysis.unknownKm')}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-bold text-sm whitespace-nowrap">{fmtISK(d.price)}</p>
                       {Number.isFinite(d.pct_below) && (
                         <p className="text-xs text-green-600 font-medium whitespace-nowrap">
-                          {formatPriceDifference(d.pct_below)}
+                          {formatPriceDifference(d.pct_below, t)}
                         </p>
                       )}
                     </div>
@@ -258,7 +260,7 @@ export function DailyDeals({
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:underline truncate"
                       >
-                        View listing
+                        {t('deals.viewListing')}
                       </a>
                     )}
                     {onViewPriceAnalysis && (
@@ -280,7 +282,7 @@ export function DailyDeals({
                           onViewPriceAnalysis(payload);
                         }}
                       >
-                        Analyze Price
+                        {t('deals.analyzePrice')}
                       </Button>
                     )}
                     

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import type { CarItem } from '@/types/form';
 import { X, RefreshCcw } from 'lucide-react';
 import { useHeader } from '@/components/ClientHeader';
+import { useLanguage } from '@/lib/language-context';
 
 // ===== Types =====
 interface CarDeal {
@@ -64,6 +65,7 @@ const toModelBase = (model: string) =>
 
 // ===== Component =====
 export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
+  const { t } = useLanguage();
   const [showDeals, setShowDeals] = useState(false);
   const [cheapestCars, setCheapestCars] = useState<CarDeal[]>([]);
   const [bestDeals, setBestDeals] = useState<EnrichedWithEstimate[]>([]);
@@ -323,7 +325,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
       <Dialog open={showDeals} onOpenChange={setShowDeals}>
         <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
           <DialogHeader className="px-6 py-4 flex items-center justify-between">
-            <DialogTitle>Car Deals</DialogTitle>
+            <DialogTitle>{t('deals.title')}</DialogTitle>
 
             {/* Force refresh (ignores cache) */}
             <Button
@@ -331,19 +333,19 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
               size="sm"
               onClick={() => openDeals(true)}
               className="gap-2"
-              title="Refresh deals"
+              title={t('deals.refreshDeals')}
             >
               <RefreshCcw className="h-4 w-4" />
-              Refresh
+              {t('deals.refresh')}
             </Button>
           </DialogHeader>
 
           <Tabs defaultValue="best-deals" className="flex-1 flex flex-col overflow-hidden">
             <TabsList className="grid w-full grid-cols-2 px-2">
               <TabsTrigger value="best-deals">
-                Best Value Deals
+                {t('deals.bestValueDeals')}
               </TabsTrigger>
-              <TabsTrigger value="cheapest">Cheapest Cars</TabsTrigger>
+              <TabsTrigger value="cheapest">{t('deals.cheapestCars')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="best-deals" className="flex-1 overflow-auto px-6">
@@ -353,8 +355,8 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                     {/* Dismiss */}
                     <button
                       type="button"
-                      aria-label="Dismiss listing"
-                      title="Dismiss listing"
+                      aria-label={t('card.dismissListing')}
+                      title={t('card.dismissListing')}
                       onClick={() => dismissBestDeal(car.id)}
                       className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 cursor-pointer z-10"
                     >
@@ -396,26 +398,28 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                           <div className="flex justify-between items-start gap-4">
                             <div>
                               <h4 className="font-semibold">
-                                {car.year ?? 'Unknown'} {car.make} {car.model}
+                                {car.year ?? t('common.unknown')} {car.make} {car.model}
                               </h4>
                               <p className="text-sm text-gray-600">
                                 {car.kilometers != null
-                                  ? `${car.kilometers.toLocaleString()} km`
-                                  : 'Unknown km'}
+                                  ? `${car.kilometers.toLocaleString()} ${t('common.km')}`
+                                  : t('analysis.unknownKm')}
                               </p>
                               {typeof car.year === 'number' && car.year_n_samples != null && (
                                 <p className="text-xs text-gray-500">
-                                  Based on {car.year_n_samples.toLocaleString()} cars from {car.year}
+                                  {t('analysis.basedOnCarsFromYear')
+                                    .replace('{count}', car.year_n_samples.toLocaleString())
+                                    .replace('{year}', car.year.toString())}
                                 </p>
                               )}
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-lg">{formatPrice(car.price)}</p>
                               <p className="text-sm text-green-600">
-                                {car.price_difference_percent.toFixed(1)}% below estimate
+                                {car.price_difference_percent.toFixed(1)}% below {t('analysis.estimate')}
                               </p>
                               <p className="text-xs text-gray-500">
-                                Est: {formatPrice(car.estimated_price)}
+                                {t('deals.est')}: {formatPrice(car.estimated_price)}
                               </p>
                             </div>
                           </div>
@@ -428,7 +432,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                                 rel="noopener noreferrer"
                                 className="text-sm text-blue-600 hover:underline"
                               >
-                                View Listing →
+                                {t('card.viewListing')} →
                               </a>
                             ) : (
                               <span />
@@ -452,7 +456,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                                   setShowDeals(false);
                                 }}
                               >
-                                View Price Analysis
+                                {t('card.viewPriceAnalysis')}
                               </Button>
                             </div>
                           </div>
@@ -470,8 +474,8 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                   <Card key={car.id} className="hover:bg-gray-50 relative">
                     <button
                       type="button"
-                      aria-label="Dismiss listing"
-                      title="Dismiss listing"
+                      aria-label={t('card.dismissListing')}
+                      title={t('card.dismissListing')}
                       onClick={() => dismissCheapest(car.id)}
                       className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 cursor-pointer z-10"
                     >
@@ -510,15 +514,15 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
 
                         {/* Car Details */}
                         <div className="flex-1 p-4 flex justify-between items-start gap-4">
-                          <div>
-                            <h4 className="font-semibold">
-                              {car.year ?? 'Unknown'} {car.make} {car.model}
-                            </h4>
-                            <p className="text-sm text-gray-600">
-                              {car.kilometers != null
-                                ? `${car.kilometers.toLocaleString()} km`
-                                : 'Unknown km'}
-                            </p>
+                            <div>
+                              <h4 className="font-semibold">
+                              {car.year ?? t('common.unknown')} {car.make} {car.model}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {car.kilometers != null
+                                  ? `${car.kilometers.toLocaleString()} ${t('common.km')}`
+                                  : t('analysis.unknownKm')}
+                              </p>
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-lg">{formatPrice(car.price)}</p>
@@ -533,7 +537,7 @@ export function CarDeals({ onViewPriceAnalysis }: CarDealsProps) {
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:underline"
                           >
-                            View Listing →
+                            {t('card.viewListing')} →
                           </a>
                         </div>
                       )}

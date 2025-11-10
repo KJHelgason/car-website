@@ -2,8 +2,11 @@
 
 import CookieConsentLib from 'react-cookie-consent';
 import Link from 'next/link';
+import { useLanguage } from '@/lib/language-context';
 
 export default function CookieConsent() {
+  const { t } = useLanguage();
+  
   const handleAccept = () => {
     // Enable Google Analytics when user accepts
     if (typeof window !== 'undefined' && window.gtag) {
@@ -31,16 +34,17 @@ export default function CookieConsent() {
   return (
     <CookieConsentLib
       location="bottom"
-      buttonText="Accept All"
-      declineButtonText="Reject"
+      buttonText={t('cookie.acceptAll')}
+      declineButtonText={t('cookie.reject')}
       cookieName="userCookieConsent"
       style={{
-        background: 'hsl(var(--background), 1)',
+        background: 'rgb(255, 255, 255)',
         borderTop: '1px solid hsl(var(--border))',
-        color: 'hsl(var(--foreground))',
+        color: 'rgb(0, 0, 0)',
         padding: '1rem',
         alignItems: 'center',
         boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+        opacity: '1',
       }}
       buttonStyle={{
         background: 'hsl(var(--primary))',
@@ -70,10 +74,9 @@ export default function CookieConsent() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 max-w-6xl mx-auto">
         <div className="flex-1">
           <p className="text-sm">
-            We use cookies to enhance your browsing experience, serve personalized ads or content, 
-            and analyze our traffic. By clicking &quot;Accept All&quot;, you consent to our use of cookies.{' '}
+            {t('cookie.message')}{' '}
             <Link href="/privacy-policy" className="underline hover:text-primary">
-              Privacy Policy
+              {t('cookie.privacyPolicy')}
             </Link>
           </p>
         </div>

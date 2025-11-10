@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { CarItem } from '@/types/form';
 import { formatPriceDifference } from '@/lib/utils';
 import { SaveListingButton } from '@/components/SaveListingButton';
+import { useLanguage } from '@/lib/language-context';
 
 interface RecentListing {
   id: number;
@@ -31,6 +32,7 @@ interface RecentListingsProps {
 }
 
 export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
+  const { t } = useLanguage();
   const [listings, setListings] = useState<RecentListing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -175,7 +177,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
             <div className="p-2 bg-green-100 rounded-lg">
               <Clock className="h-4 w-4 text-green-600" />
             </div>
-            Recent Listings
+            {t('recent.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -196,7 +198,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
           <div className="p-2 bg-green-100 rounded-lg">
             <Clock className="h-4 w-4 text-green-600" />
           </div>
-          Recent Listings
+          {t('recent.title')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -283,7 +285,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                           </h4>
                         </a>
                         <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                          {listing.kilometers !== null ? listing.kilometers.toLocaleString() : 'Unknown'} km
+                          {listing.kilometers !== null ? listing.kilometers.toLocaleString() : t('common.unknown')} {t('common.km')}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">{formatDate(listing.scraped_at)}</p>
                       </div>
@@ -293,7 +295,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                         </p>
                         {Number.isFinite(listing.pct_below) && listing.pct_below !== undefined && (
                           <p className="text-xs text-green-600 font-medium whitespace-nowrap">
-                            {formatPriceDifference(listing.pct_below)}
+                            {formatPriceDifference(listing.pct_below, t)}
                           </p>
                         )}
                       </div>
@@ -308,7 +310,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                           rel="noopener noreferrer"
                           className="text-xs sm:text-sm text-blue-600 hover:underline"
                         >
-                          View listing
+                          {t('card.viewListing')}
                         </a>
                       ) : (
                         <span />
@@ -329,7 +331,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                             });
                           }}
                         >
-                          Analyze Price
+                          {t('search.analyze')}
                         </Button>
                       )}
                     </div>

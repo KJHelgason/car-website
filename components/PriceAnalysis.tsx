@@ -15,6 +15,7 @@ import { Maximize2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SaveSearchButton } from '@/components/SaveSearchButton'
 import type { CarItem } from '@/types/form'
+import { useLanguage } from '@/lib/language-context'
 
 interface PriceAnalysisProps {
   analysis: CarAnalysis
@@ -46,6 +47,7 @@ interface CustomTooltipProps {
   // pooled model consistency props
   pooledCoef: CoefJson | null
   calcPriceFromCoef: (coef: CoefJson, year: number, km: number) => number
+  t: (key: string, params?: Record<string, any>) => string
 }
 
 type CoefJson = {
@@ -71,6 +73,7 @@ const CustomTooltip = ({
   formatPrice,
   pooledCoef,
   calcPriceFromCoef,
+  t,
 }: CustomTooltipProps) => {
   // Show if actively hovering OR if the tooltip itself is being hovered
   if ((!active && !isHovering) || !payload || payload.length === 0) return null
@@ -124,7 +127,7 @@ const CustomTooltip = ({
       >
         {itemsToShow.length > 1 && (
           <p className="text-xs font-semibold text-gray-600 mb-2 pb-2 border-b">
-            {itemsToShow.length} cars at this position
+            {t('analysis.carsAtPosition', { count: itemsToShow.length })}
           </p>
         )}
         
@@ -173,13 +176,13 @@ const CustomTooltip = ({
                 )}
                 
                 <div className="space-y-0.5">
-                  <p className="text-xs sm:text-sm">{`Driven: ${Math.round(data.kilometers).toLocaleString()} km`}</p>
-                  <p className="text-xs sm:text-sm">{`Price: ${formatPrice(Math.round(data.price))}`}</p>
-                  {data.year && <p className="text-xs sm:text-sm">{`Year: ${data.year}`}</p>}
+                  <p className="text-xs sm:text-sm">{`${t('analysis.driven')}: ${Math.round(data.kilometers).toLocaleString()} km`}</p>
+                  <p className="text-xs sm:text-sm">{`${t('search.price')}: ${formatPrice(Math.round(data.price))}`}</p>
+                  {data.year && <p className="text-xs sm:text-sm">{`${t('search.year')}: ${data.year}`}</p>}
                   {pct !== null && (
                     <p className="mt-1 text-xs sm:text-sm">
                       <span className={pct > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                        {Math.abs(pct).toFixed(1)}% {pct > 0 ? 'below' : 'above'} estimate
+                        {Math.abs(pct).toFixed(1)}% {pct > 0 ? t('analysis.belowEstimate') : t('analysis.aboveEstimate')}
                       </span>
                     </p>
                   )}
@@ -210,6 +213,7 @@ function isTier(x: unknown): x is 'model_year' | 'model' | 'make' | 'global' {
 }
 
 export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchParams }: PriceAnalysisProps) {
+  const { t } = useLanguage();
   const { targetCar, similarListings, priceCurves, estimatedPrice, priceRange, priceModel } =
     analysis
   const [hoveredPoint, setHoveredPoint] = useState<PricePoint | null>(null)
@@ -469,9 +473,9 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
       global: 'bg-slate-50 text-slate-700 border-slate-200',
     }
     const labels: Record<typeof curveTier, string> = {
-      model_year: selectedYear ? `${selectedYear} Model` : 'Using: Year-specific',
-      model: 'Using: Model',
-      make: 'Using: Make',
+      model_year: selectedYear ? `${selectedYear} ${t('search.model')}` : t('card.tierYearSpecific'),
+      model: t('card.tierModel'),
+      make: t('card.tierMake'),
       global: 'Using: Global',
     }
     return (
@@ -662,28 +666,28 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
           <XAxis
             type="number"
             dataKey="kilometers"
-            name="Kilometers"
+            name={t('search.kilometers')}
             unit=" km"
             domain={xDomain as [number, number]}
             allowDataOverflow={false}
             tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-            label={{ value: 'Kilometers Driven', position: 'insideBottom', offset: -10, className: 'text-xs sm:text-sm' }}
+            label={{ value: t('search.kilometers'), position: 'insideBottom', offset: -10, className: 'text-xs sm:text-sm' }}
             tick={{ fontSize: 12 }}
           />
           <YAxis
             type="number"
             dataKey="price"
-            name="Price"
+            name={t('search.price')}
             domain={yDomain as [number, number]}
             allowDataOverflow={false}
             tickFormatter={(value) => `${(value / 1_000_000).toFixed(1)}M`}
-            label={{ value: 'Price (ISK)', angle: -90, position: 'insideLeft', offset: 5, className: 'text-xs sm:text-sm' }}
+            label={{ value: `${t('search.price')} (${t('common.currency')})`, angle: -90, position: 'insideLeft', offset: 5, className: 'text-xs sm:text-sm' }}
             tick={{ fontSize: 12 }}
           />
 
           {/* Similar listings (filter to selectedYear) */}
           <Scatter
-            name="Similar Cars"
+            name={t('similar.title')}
             data={similarListings
               .filter((listing) => {
                 if (listing.isTarget) return true
@@ -724,7 +728,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
           {/* Target car as non-interactive ring so underlying grey stays clickable */}
           {targetCar.price && targetCar.kilometers && (
             <Scatter
-              name="Your Car"
+              name={t('analysis.yourCar')}
               data={[targetCar as PricePoint]}
               shape={<TargetRing />}
               isAnimationActive={false}
@@ -742,7 +746,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
       <>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-2">
           <div className="flex items-center flex-wrap gap-2">
-            <CardTitle className="text-lg sm:text-xl">Price Analysis</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">{t('analysis.title')}</CardTitle>
             {tierBadge}
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -770,7 +774,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
               }}
             >
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Select Year" />
+                <SelectValue placeholder={t('search.selectYear')} />
               </SelectTrigger>
               <SelectContent className="z-[80]">
                 <SelectGroup>
@@ -792,8 +796,8 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
               variant="ghost"
               size="icon"
               onClick={() => setShowFullGraph(!showFullGraph)}
-              aria-label={showFullGraph ? "Show optimized view" : "Show full graph"}
-              title={showFullGraph ? "Show optimized view" : "Show full graph"}
+              aria-label={showFullGraph ? t('analysis.showOptimizedView') : t('analysis.showFullGraph')}
+              title={showFullGraph ? t('analysis.showOptimizedView') : t('analysis.showFullGraph')}
               className="cursor-pointer"
             >
               {showFullGraph ? <X className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -815,37 +819,37 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
               {targetCar.price && targetCar.kilometers ? (
                 <>
                   <div>
-                    <h3 className="text-xs sm:text-sm font-medium">Estimated Fair Price</h3>
+                    <h3 className="text-xs sm:text-sm font-medium">{t('analysis.estimatedFairPrice')}</h3>
                     <p className="text-xl sm:text-2xl font-bold">{formatPrice(estimatedPrice)}</p>
                     <p className="text-xs sm:text-sm text-gray-500">
-                      Range: {formatPrice(priceRange.low)} - {formatPrice(priceRange.high)}
+                      {t('analysis.range')}: {formatPrice(priceRange.low)} - {formatPrice(priceRange.high)}
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="text-xs sm:text-sm font-medium">Assessment</h3>
+                    <h3 className="text-xs sm:text-sm font-medium">{t('analysis.assessment')}</h3>
                     <p className={`text-xl sm:text-2xl font-bold ${getPriceAssessment().color}`}>
                       {getPriceAssessment().text}
                     </p>
                     <p className="text-xs sm:text-sm text-gray-500">
-                      Based on {displayedNSamples.toLocaleString()} similar cars
+                      {t('analysis.basedOnCars').replace('{count}', displayedNSamples.toLocaleString())}
                     </p>
                   </div>
                 </>
               ) : (
                 <div className="sm:col-span-2">
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Price and mileage required for value assessment
+                    {t('analysis.priceRequired')}
                   </p>
                 </div>
               )}
 
               <div className="col-span-2">
-                <h3 className="text-xs sm:text-sm font-medium">Model Quality</h3>
+                <h3 className="text-xs sm:text-sm font-medium">{t('analysis.modelQuality')}</h3>
                 <p className="text-xs sm:text-sm text-gray-500">
-                  <span className="block sm:inline">Algorithm Accuracy: {(analysis.priceModel.r2 * 100).toFixed(1)}%</span>
+                  <span className="block sm:inline">{t('analysis.algorithmAccuracy')}: {(analysis.priceModel.r2 * 100).toFixed(1)}%</span>
                   <span className="hidden sm:inline"> • </span>
-                  <span className="block sm:inline">Average Error: ±{formatPrice(analysis.priceModel.rmse)}</span>
+                  <span className="block sm:inline">{t('analysis.averageError')}: ±{formatPrice(analysis.priceModel.rmse)}</span>
                 </p>
               </div>
             </div>
@@ -890,7 +894,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
           >
             {hoveredPoints.length > 1 && (
               <p className="text-xs font-semibold text-gray-600 mb-2 pb-2 border-b">
-                {hoveredPoints.length} cars at this position
+                {t('analysis.carsAtPosition', { count: hoveredPoints.length })}
               </p>
             )}
 
@@ -940,11 +944,11 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
                     )}
 
                     <div className="space-y-0.5">
-                      <p className="text-xs sm:text-sm">{`Driven: ${Math.round(
+                      <p className="text-xs sm:text-sm">{`${t('analysis.driven')}: ${Math.round(
                         data.kilometers
                       ).toLocaleString()} km`}</p>
-                      <p className="text-xs sm:text-sm">{`Price: ${formatPrice(Math.round(data.price))}`}</p>
-                      {data.year && <p className="text-xs sm:text-sm">{`Year: ${data.year}`}</p>}
+                      <p className="text-xs sm:text-sm">{`${t('search.price')}: ${formatPrice(Math.round(data.price))}`}</p>
+                      {data.year && <p className="text-xs sm:text-sm">{`${t('search.year')}: ${data.year}`}</p>}
                       {pct !== null && (
                         <p className="mt-1 text-xs sm:text-sm">
                           <span
@@ -952,7 +956,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
                               pct > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
                             }
                           >
-                            {Math.abs(pct).toFixed(1)}% {pct > 0 ? 'below' : 'above'} estimate
+                            {Math.abs(pct).toFixed(1)}% {pct > 0 ? t('analysis.belowEstimate') : t('analysis.aboveEstimate')}
                           </span>
                         </p>
                       )}

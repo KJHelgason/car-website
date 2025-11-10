@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { trackSearch } from '@/lib/analytics';
 import { FullCarList } from '@/components/FullCarList';
 import type { CarItem } from '@/types/form';
+import { useLanguage } from '@/lib/language-context';
 import {
     Select,
     SelectContent,
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function CarListSearch({ makes, onViewPriceAnalysis, onSearchStateChange }: Props) {
+    const { t } = useLanguage();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [results, setResults] = useState<CarListingResult[]>([]);
@@ -255,7 +257,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis, onSearchStateChange 
 
                     {/* Year Range Section */}
                     <div id="year" className="space-y-2">
-                        <Label>Year Range</Label>
+                        <Label>{t('search.yearRange')}</Label>
                         <div className="flex gap-2">
                             <Select
                                 value={filters.yearMin || "~"}
@@ -307,7 +309,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis, onSearchStateChange 
 
                     {/* Kilometers Range Section */}
                     <div id="km-range" className="space-y-2">
-                        <Label>Kilometers Range</Label>
+                        <Label>{t('search.kilometersRange')}</Label>
                         <div className="flex gap-2">
                             <Select
                                 value={filters.kmMin || "~"}
@@ -355,7 +357,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis, onSearchStateChange 
 
                     {/* Price Range Section */}
                     <div id="price-range" className="space-y-2">
-                        <Label>Price Range (ISK)</Label>
+                        <Label>{t('search.priceRange')}</Label>
                         <div className="flex gap-2">
                             <Select
                                 value={filters.priceMin || "~"}

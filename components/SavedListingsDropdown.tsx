@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Heart, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/lib/language-context';
 
 interface SavedListingsDropdownProps {
   onClose?: () => void;
@@ -16,6 +17,7 @@ interface SavedListingsDropdownProps {
 export function SavedListingsDropdown({ onClose }: SavedListingsDropdownProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const { t } = useLanguage();
   const [listings, setListings] = useState<SavedListing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,8 +62,8 @@ export function SavedListingsDropdown({ onClose }: SavedListingsDropdownProps) {
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
         <Heart className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p>No saved listings yet</p>
-        <p className="text-xs mt-1">Click the heart icon on listings to save them</p>
+        <p>{t('saved.noSavedListings')}</p>
+        <p className="text-xs mt-1">{t('card.saveForLater')}</p>
       </div>
     );
   }

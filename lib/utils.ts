@@ -11,6 +11,14 @@ export function getPriceDifferenceColor(priceDiff: number): string {
   return "text-yellow-600";
 }
 
-export function formatPriceDifference(priceDiff: number): string {
-  return `${Math.abs(priceDiff).toFixed(1)}% ${priceDiff > 0 ? 'below' : 'above'} estimate`;
+export function formatPriceDifference(
+  priceDiff: number,
+  t?: (key: string) => string
+): string {
+  if (!t) {
+    // Fallback for backward compatibility
+    return `${Math.abs(priceDiff).toFixed(1)}% ${priceDiff > 0 ? 'below' : 'above'} estimate`;
+  }
+  const direction = priceDiff > 0 ? t('deals.belowEstimate') : t('deals.aboveEstimate');
+  return `${Math.abs(priceDiff).toFixed(1)}% ${direction}`;
 }

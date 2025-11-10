@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { saveSearch } from '@/lib/saved-items';
 import { Button } from '@/components/ui/button';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ export function SaveSearchButton({
   size = 'sm',
 }: SaveSearchButtonProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [customName, setCustomName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -114,12 +116,12 @@ export function SaveSearchButton({
           <div className="text-sm text-muted-foreground space-y-1">
             <p>Search parameters:</p>
             <ul className="list-disc list-inside">
-              {searchParams.make && <li>Make: {searchParams.make}</li>}
-              {searchParams.model && <li>Model: {searchParams.model}</li>}
-              {searchParams.year && <li>Year: {searchParams.year}</li>}
+              {searchParams.make && <li>{t('saveSearch.make')}: {searchParams.make}</li>}
+              {searchParams.model && <li>{t('saveSearch.model')}: {searchParams.model}</li>}
+              {searchParams.year && <li>{t('search.year')}: {searchParams.year}</li>}
               {(searchParams.min_price || searchParams.max_price) && (
                 <li>
-                  Price: {searchParams.min_price || 0} -{' '}
+                  {t('search.price')}: {searchParams.min_price || 0} -{' '}
                   {searchParams.max_price || '∞'} ISK
                 </li>
               )}

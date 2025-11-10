@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import type { CarItem } from '@/types/form';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/lib/language-context';
 
 interface MakeOption {
   make_norm: string;
@@ -27,6 +28,7 @@ interface CarSearchFormProps {
 }
 
 export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
+  const { t } = useLanguage();
   const [models, setModels] = useState<string[]>([]);
 
   const {
@@ -104,7 +106,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div id="make">
             <Label htmlFor="make-select" className="mb-2">
-              Car Make
+              {t('search.make')}
             </Label>
             {/* shadcn Select is controlled via value/onValueChange; RHF gets the value via hidden input below */}
             <Select
@@ -115,7 +117,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
               }}
             >
               <SelectTrigger id="make-select" className="w-full">
-                <SelectValue placeholder="Select Make" />
+                <SelectValue placeholder={t('search.selectMake')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -134,7 +136,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
 
           <div id="model">
             <Label htmlFor="model-select" className="mb-2">
-              Car Model
+              {t('search.model')}
             </Label>
             <Select
               disabled={!selectedMake}
@@ -144,7 +146,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
               }
             >
               <SelectTrigger id="model-select" className="w-full">
-                <SelectValue placeholder="Select Model" />
+                <SelectValue placeholder={t('search.selectModel')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -165,18 +167,18 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div id="year">
             <Label htmlFor="year-select" className="mb-2">
-              Year <span className="text-xs text-slate-500 font-normal">(optional)</span>
+              {t('search.year')} <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>
             <Select
               value={watch('year')}
               onValueChange={(value) => setValue('year', value, { shouldDirty: true })}
             >
               <SelectTrigger id="year-select" className="w-full">
-                <SelectValue placeholder="Select Year" />
+                <SelectValue placeholder={t('search.selectYear')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="all">All Years</SelectItem>
+                  <SelectItem value="all">{t('search.allYears')}</SelectItem>
                   {Array.from({ length: 26 }, (_, i) => new Date().getFullYear() - i).map((year) => (
                     <SelectItem key={year} value={year.toString()}>
                       {year}
@@ -191,7 +193,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
 
           <div id="kilometers">
             <Label htmlFor="kilometers" className="mb-2">
-              Kilometers <span className="text-xs text-slate-500 font-normal">(optional)</span>
+              {t('search.kilometers')} <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>
             <div className="relative">
               <Input
@@ -234,7 +236,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div id="price">
             <Label htmlFor="price-input" className="mb-2">
-              Price <span className="text-xs text-slate-500 font-normal">(optional)</span>
+              {t('search.price')} <span className="text-xs text-slate-500 font-normal">(optional)</span>
             </Label>
             <div className="relative">
               <Input
@@ -279,7 +281,7 @@ export function CarSearchForm({ onSearch, makes }: CarSearchFormProps) {
             </Label>
             <div className="flex items-center gap-2">
               <Button type="submit" className="w-full" id="submit-btn">
-                Analyze Price
+                {t('search.analyze')}
               </Button>
             </div>
           </div>

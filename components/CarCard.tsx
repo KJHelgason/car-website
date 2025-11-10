@@ -7,6 +7,7 @@ import { Heart, ExternalLink } from 'lucide-react';
 import { CarListing } from '@/types/car';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/lib/language-context';
 
 interface CarCardProps {
   car: CarListing;
@@ -17,6 +18,7 @@ interface CarCardProps {
 
 export default function CarCard({ car, showSaveButton = true, isSaved = false, onSaveToggle }: CarCardProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [saved, setSaved] = useState(isSaved);
   const [loading, setLoading] = useState(false);
 
@@ -110,8 +112,8 @@ export default function CarCard({ car, showSaveButton = true, isSaved = false, o
           {car.make} {car.model}
         </h3>
         <div className="space-y-1 text-sm text-muted-foreground mb-3">
-          <p>Year: {car.year}</p>
-          <p>Mileage: {formatKilometers(car.kilometers)}</p>
+          <p>{t('card.year')}: {car.year}</p>
+          <p>{t('card.mileage')}: {formatKilometers(car.kilometers)}</p>
           <p className="text-lg font-semibold text-foreground">{formatPrice(car.price)}</p>
         </div>
         {car.url && (
