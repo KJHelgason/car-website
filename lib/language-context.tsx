@@ -8,7 +8,7 @@ type Language = 'en' | 'is';
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -29,7 +29,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('language', lang);
   };
 
-  const t = (key: string, params?: Record<string, any>) => {
+  const t = (key: string, params?: Record<string, string | number>) => {
     let translation = getTranslation(language, key);
     
     // Replace parameters in the translation string

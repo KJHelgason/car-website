@@ -6,7 +6,7 @@ import { getSavedSearches } from '@/lib/saved-items';
 import type { SavedSearch } from '@/types/saved';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Search, Calendar, DollarSign } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useLanguage } from '@/lib/language-context';
 
 export function SavedSearchesDropdown() {

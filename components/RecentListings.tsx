@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, ExternalLink } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { CarItem } from '@/types/form';
 import { formatPriceDifference } from '@/lib/utils';
@@ -36,11 +36,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
   const [listings, setListings] = useState<RecentListing[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchRecentListings();
-  }, []);
-
-  const calculateEstimate = (coefJson: unknown, year: number, kilometers: number): number => {
+  const calculateEstimate = useCallback((coefJson: unknown, year: number, kilometers: number): number => {
     try {
       // Parse if it's a string
       const coef = typeof coefJson === 'string' ? JSON.parse(coefJson) : coefJson;
@@ -59,9 +55,9 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
       console.error('Error in calculateEstimate:', error);
       return 0;
     }
-  };
+  }, []);
 
-  const normalizeModel = (model: string): string => {
+  const normalizeModel = useCallback((model: string): string => {
     return model
       .toLowerCase()
       .trim()
@@ -69,9 +65,9 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
       .split(/\s+/)
       .slice(0, 2)
       .join(' ');
-  };
+  }, []);
 
-  const fetchRecentListings = async () => {
+  const fetchRecentListings = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('car_listings')
@@ -146,7 +142,11 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [calculateEstimate, normalizeModel]);
+
+  useEffect(() => {
+    fetchRecentListings();
+  }, [fetchRecentListings]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('is-IS', {

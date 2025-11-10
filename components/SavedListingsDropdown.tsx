@@ -87,7 +87,6 @@ export function SavedListingsDropdown({ onClose }: SavedListingsDropdownProps) {
       <div className="p-2 space-y-2 max-h-96 overflow-y-auto">
         {listings.map((listing) => {
           const displayName = listing.display_name || `${listing.make} ${listing.model}`;
-          const displayMake = listing.display_make || listing.make;
           
           return (
             <div

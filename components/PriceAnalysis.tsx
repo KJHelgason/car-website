@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from 'recharts'
+import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis } from 'recharts'
 import { CarAnalysis } from '@/types/car'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
@@ -47,7 +47,7 @@ interface CustomTooltipProps {
   // pooled model consistency props
   pooledCoef: CoefJson | null
   calcPriceFromCoef: (coef: CoefJson, year: number, km: number) => number
-  t: (key: string, params?: Record<string, any>) => string
+  t: (key: string, params?: Record<string, string | number>) => string
 }
 
 type CoefJson = {
@@ -216,7 +216,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
   const { t } = useLanguage();
   const { targetCar, similarListings, priceCurves, estimatedPrice, priceRange, priceModel } =
     analysis
-  const [hoveredPoint, setHoveredPoint] = useState<PricePoint | null>(null)
   const [hoveredPoints, setHoveredPoints] = useState<PricePoint[]>([])
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number; showOnLeft?: boolean } | null>(null)
   const [isTooltipHovered, setIsTooltipHovered] = useState(false)
@@ -229,7 +228,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
 
   // Helper to close tooltip
   const closeTooltip = useCallback(() => {
-    setHoveredPoint(null)
     setHoveredPoints([])
     setTooltipPosition(null)
     setIsTooltipHovered(false)
@@ -490,7 +488,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
         {labels[curveTier]}
       </span>
     )
-  }, [curveTier, selectedYear])
+  }, [curveTier, selectedYear, t])
 
   // Pick the current curve to draw (may be per-year)
   const currentCurve: PricePoint[] | undefined = useMemo(() => {
@@ -541,7 +539,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
       }
       
       return [Math.max(0, lower), upper]
-    }, [similarListings, selectedYear, showFullGraph])
+    }, [selectedYear, showFullGraph])
 
     // Calculate Y-axis domain based on actual data
     const yDomain = useMemo(() => {
@@ -569,7 +567,7 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
       const lower = showFullGraph ? 0 : Math.max(0, Math.floor((minPrice - padding) / 500000) * 500000)
       
       return [lower, upper]
-    }, [similarListings, selectedYear, showFullGraph])
+    }, [selectedYear, showFullGraph])
 
     // Custom dot component that handles hover
     const CustomDot = (props: { cx?: number; cy?: number; payload?: PricePoint }) => {
@@ -601,7 +599,6 @@ export function PriceAnalysis({ analysis, onYearChange, searchedYear, searchPara
               })
             
             setHoveredPoints(nearby.length > 0 ? nearby : [payload])
-            setHoveredPoint(payload)
             
             // Get tooltip position relative to viewport
             const rect = e.currentTarget.getBoundingClientRect()
