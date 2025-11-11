@@ -111,7 +111,8 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
         let estimated_price: number | undefined;
         let pct_below: number | undefined;
 
-        if (priceModel?.coef_json) {
+        // Only calculate estimate if we have valid kilometers data
+        if (priceModel?.coef_json && listing.kilometers !== null && listing.kilometers !== undefined) {
           estimated_price = calculateEstimate(priceModel.coef_json, listing.year, listing.kilometers);
           if (estimated_price > 0) {
             pct_below = ((estimated_price - listing.price) / estimated_price) * 100;
@@ -204,16 +205,6 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
       <CardContent>
         <div className="space-y-3">
           {listings.map((listing, index) => {
-            // Debug logging
-            console.log(`Listing ${index}:`, {
-              make: listing.make,
-              model: listing.model,
-              source: listing.source,
-              sourceType: typeof listing.source,
-              hasFacebook: listing.source && listing.source.toLowerCase().includes('facebook'),
-              exactMatch: listing.source === 'Facebook Marketplace'
-            });
-            
             return (
             <Card
               key={index}
@@ -316,7 +307,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                         <span />
                       )}
 
-                      {onViewAnalysis && (
+                      {onViewAnalysis && listing.kilometers !== null && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -326,7 +317,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                               make: listing.make,
                               model: listing.model,
                               year: listing.year.toString(),
-                              kilometers: listing.kilometers,
+                              kilometers: listing.kilometers!,
                               price: listing.price,
                             });
                           }}

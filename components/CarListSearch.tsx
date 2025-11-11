@@ -407,7 +407,7 @@ export function CarListSearch({ makes, onViewPriceAnalysis, onSearchStateChange 
                 <div className="pt-6 flex justify-center">
                     <Button
                         id="submit"
-                        onClick={() => fetchResults(true)}
+                        onClick={() => fetchResults(false)}
                         disabled={loading}
                         className="w-full md:w-auto"
                     >

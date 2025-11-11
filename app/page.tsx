@@ -170,11 +170,9 @@ function HomeContent() {
 
       if (year === null) return NaN;
       if (!year || isNaN(parseInt(year))) {
-        console.error('Invalid year format:', year);
         return NaN;
       }
       if (typeof kilometers !== 'number' || isNaN(kilometers)) {
-        console.error('Invalid kilometers value:', kilometers);
         return NaN;
       }
 
@@ -182,7 +180,6 @@ function HomeContent() {
       const logKm = Math.log(1 + Math.max(0, kilometers));
 
       if (!coefficients || typeof coefficients !== 'object') {
-        console.error('Invalid coefficients:', coefficients);
         return NaN;
       }
 
@@ -191,7 +188,6 @@ function HomeContent() {
         coefficients.beta_logkm * logKm +
         coefficients.beta_age_logkm * (age * logKm);
     } catch (error) {
-      console.error('Error calculating price:', error);
       return NaN;
     }
   };
@@ -343,11 +339,6 @@ function HomeContent() {
       }
 
       if (isNaN(price)) {
-        console.error('Price calculation resulted in NaN:', {
-          year: data.year,
-          kilometers: data.kilometers,
-          coefficients: priceModel.coef_json
-        });
         return;
       }
 
