@@ -63,10 +63,10 @@ export default function Header() {
             {/* Tips Button - Only on home page */}
             {isHomePage && <TipsButton variant="ghost" size="sm" className="cursor-pointer"/>}
             
-            {/* Saved Searches Dropdown */}
+            {/* Saved Searches Dropdown - Hidden on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
+                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hidden md:flex">
                   <Search className="h-4 w-4" />
                   <span className="hidden sm:inline">{t('header.savedSearches')}</span>
                 </Button>
@@ -76,10 +76,10 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Saved Listings Dropdown */}
+            {/* Saved Listings Dropdown - Hidden on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
+                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hidden md:flex">
                   <Heart className="h-4 w-4" />
                   <span className="hidden sm:inline">{t('header.saved')}</span>
                 </Button>

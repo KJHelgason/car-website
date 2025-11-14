@@ -1,0 +1,10 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin or private areas (if any)
+# Disallow: /admin
+# Disallow: /api/
+
+# Sitemap location
+Sitemap: https://bilaleiga.is/sitemap.xml

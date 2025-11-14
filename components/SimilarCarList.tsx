@@ -213,93 +213,94 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
 
   return (
     <Card id="similar-cars" className="w-full h-full flex flex-col">
-      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-4">
+      <CardHeader className="flex flex-col gap-4 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <CardTitle>{t('similar.title')}</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (sortBy === 'value') {
-                  setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-                } else {
-                  setSortBy('value');
-                  setSortOrder('desc');
-                }
-              }}
-              className={`px-2 ${sortBy === 'value' ? 'bg-blue-50' : ''}`}
-              title={`Sort by value ${sortBy === 'value' && sortOrder === 'desc' ? '(ascending)' : '(descending)'}`}
-            >
-              {sortBy === 'value' && sortOrder === 'desc' ? (
-                <ArrowDownNarrowWide className="h-4 w-4" />
-              ) : (
-                <ArrowUpNarrowWide className="h-4 w-4" />
-              )}
-              <span className="ml-2">{t('similar.sortByValue')}</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (sortBy === 'price') {
-                  setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-                } else {
-                  setSortBy('price');
-                  setSortOrder('desc');
-                }
-              }}
-              className={`px-2 ${sortBy === 'price' ? 'bg-blue-50' : ''}`}
-              title={`Sort by price ${sortBy === 'price' && sortOrder === 'desc' ? '(ascending)' : '(descending)'}`}
-            >
-              {sortBy === 'price' && sortOrder === 'desc' ? (
-                <ArrowDownAZ className="h-4 w-4" />
-              ) : (
-                <ArrowUpAZ className="h-4 w-4" />
-              )}
-              <span className="ml-2">{t('similar.sortByPrice')}</span>
-            </Button>
-          </div>
+          
+          <Select
+            value={selectedYear?.toString()}
+            onValueChange={(value) => {
+              const newYear = parseInt(value);
+              setSelectedYear(newYear);
+              setDisplayLimit(10);
+              onYearChange?.(newYear);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder={t('search.selectYear')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {availableYears.map((year) => {
+                  const count = similarListings.filter((listing) => {
+                    const ly = listing.year ? parseInt(listing.year) : NaN;
+                    return !Number.isNaN(ly) && ly === year;
+                  }).length;
+
+                  return (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year} <span className="font-bold">({count})</span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
-
-        <Select
-          value={selectedYear?.toString()}
-          onValueChange={(value) => {
-            const newYear = parseInt(value);
-            setSelectedYear(newYear);
-            setDisplayLimit(10);
-            onYearChange?.(newYear);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder={t('search.selectYear')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {availableYears.map((year) => {
-                const count = similarListings.filter((listing) => {
-                  const ly = listing.year ? parseInt(listing.year) : NaN;
-                  return !Number.isNaN(ly) && ly === year;
-                }).length;
-
-                return (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year} <span className="font-bold">({count})</span>
-                  </SelectItem>
-                );
-              })}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (sortBy === 'value') {
+                setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+              } else {
+                setSortBy('value');
+                setSortOrder('desc');
+              }
+            }}
+            className={`px-3 ${sortBy === 'value' ? 'bg-blue-50' : ''}`}
+            title={`Sort by value ${sortBy === 'value' && sortOrder === 'desc' ? '(ascending)' : '(descending)'}`}
+          >
+            {sortBy === 'value' && sortOrder === 'desc' ? (
+              <ArrowDownNarrowWide className="h-4 w-4" />
+            ) : (
+              <ArrowUpNarrowWide className="h-4 w-4" />
+            )}
+            <span className="ml-2">{t('similar.sortByValue')}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (sortBy === 'price') {
+                setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+              } else {
+                setSortBy('price');
+                setSortOrder('desc');
+              }
+            }}
+            className={`px-3 ${sortBy === 'price' ? 'bg-blue-50' : ''}`}
+            title={`Sort by price ${sortBy === 'price' && sortOrder === 'desc' ? '(ascending)' : '(descending)'}`}
+          >
+            {sortBy === 'price' && sortOrder === 'desc' ? (
+              <ArrowDownAZ className="h-4 w-4" />
+            ) : (
+              <ArrowUpAZ className="h-4 w-4" />
+            )}
+            <span className="ml-2">{t('similar.sortByPrice')}</span>
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="flex-1 overflow-auto">
-        <div className="space-y-4 pr-2">
+        <div className="space-y-3 pr-2">
           {filteredListings.slice(0, displayLimit).map((car, idx) => (
             <Card key={`${car.url ?? car.name ?? 'car'}-${idx}`} className="hover:bg-gray-50 py-0 overflow-hidden">
-              <div className="flex items-stretch min-h-[128px]">
+              <div className="flex items-stretch">
                 {/* Car Image - clickable, fills top, left, and bottom edges */}
-                <div className="relative w-32 flex-shrink-0">
+                <div className="relative w-24 sm:w-32 flex-shrink-0">
                   <a
                     href={car.url || undefined}
                     target="_blank"
@@ -313,7 +314,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
                       <img
                         src={car.image_url}
                         alt={car.name || 'Car'}
-                        className="absolute inset-0 w-full h-full object-contain hover:opacity-90 transition-opacity"
+                        className="absolute inset-0 w-full h-full object-cover hover:opacity-90 transition-opacity"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
@@ -345,9 +346,9 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 flex flex-col justify-between p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
+                <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4">
+                    <div className="flex items-start justify-between gap-2 sm:gap-4">
+                      <div className="min-w-0 flex-1">
                         {/* Title - clickable */}
                         <a
                           href={car.url || undefined}
@@ -358,31 +359,31 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
                             if (!car.url) e.preventDefault();
                           }}
                         >
-                          <h4 className="font-semibold leading-tight">{car.name}</h4>
+                          <h4 className="font-semibold text-sm sm:text-base leading-tight">{car.name}</h4>
                         </a>
-                        <p className="text-sm text-slate-600">
+                        <p className="text-xs sm:text-sm text-slate-600">
                           {typeof car.kilometers === 'number' ? car.kilometers.toLocaleString() : 'Unknown'} km
                         </p>
                         {car.year && <p className="text-xs text-slate-500 mt-1">Year: {car.year}</p>}
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold">{formatPrice(car.price)}</p>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-sm sm:text-base whitespace-nowrap">{formatPrice(car.price)}</p>
                         {typeof car.priceDifference === 'number' && (
-                          <div className={car.priceDifference > 0 ? 'text-sm text-green-600' : 'text-sm text-red-600'}>
+                          <div className={car.priceDifference > 0 ? 'text-xs sm:text-sm text-green-600' : 'text-xs sm:text-sm text-red-600'}>
                             <p className="leading-tight">{Math.abs(car.priceDifference).toFixed(1)}% {car.priceDifference > 0 ? 'below' : 'above'}</p>
-                            <p className="text-xs leading-tight">estimate</p>
+                            <p className="text-[10px] sm:text-xs leading-tight">estimate</p>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 mt-2">
                       {car.url ? (
                         <a
                           href={car.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
+                          className="text-xs sm:text-sm text-blue-600 hover:underline"
                         >
                           View listing
                         </a>
@@ -394,7 +395,7 @@ export function SimilarCarList({ analysis, onYearChange, searchedYear, onViewPri
                         <Button
                           size="sm"
                           variant="outline"
-                          className="cursor-pointer"
+                          className="cursor-pointer text-xs"
                           onClick={() => {
                             const [make, ...modelParts] = (car.name || '').split(' ');
                             const model = modelParts.join(' ');

@@ -20,14 +20,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://bilaleiga.is'),
   title: "Allir Bilar - Find Your Perfect Car",
   description: "Browse and search car listings. Get accurate car price estimates and market analysis. Save your favorite listings and searches.",
-  keywords: ["car prices", "car listings", "used cars", "car search", "car price estimate"],
+  keywords: ["car prices", "car listings", "used cars", "car search", "car price estimate", "Iceland cars", "bílar", "bílaleit"],
   authors: [{ name: "Allir Bilar" }],
   openGraph: {
     title: "Allir Bilar - Find Your Perfect Car",
     description: "Browse and search car listings with price analysis",
     type: "website",
+    locale: "en_US",
+    alternateLocale: "is_IS",
+    siteName: "Allir Bilar",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: 'https://bilaleiga.is',
   },
 };
 
@@ -38,9 +56,32 @@ export default function RootLayout({
 }) {
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Allir Bilar',
+    url: 'https://bilaleiga.is',
+    description: 'Browse and search car listings. Get accurate car price estimates and market analysis.',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: 'https://bilaleiga.is/?search={search_term_string}',
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   return (
     <html lang="en">
       <head>
+        {/* Structured Data */}
+        <Script
+          id="structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+        
         {/* Google AdSense */}
         <Script
           id="adsense-script"
