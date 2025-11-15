@@ -118,8 +118,9 @@ function HomeContent() {
     // Get makes from price_models first
     const { data: modelMakes, error: modelError } = await supabase
       .from('price_models')
-      .select('make_norm, display_make')
+      .select('make_norm, display_make, model_base')
       .not('make_norm', 'is', null)
+      .not('model_base', 'is', null)
       .order('display_make', { ascending: true });
 
     if (modelError) {
@@ -129,30 +130,48 @@ function HomeContent() {
 
     if (modelMakes && modelMakes.length > 0) {
       // Create unique make entries with both normalized and display values
-      const uniqueMakes = [...new Set(modelMakes.map(item => item.make_norm))].map(make_norm => {
-        const entry = modelMakes.find(item => item.make_norm === make_norm);
-        return {
-          make_norm: make_norm,
-          display_make: entry?.display_make || make_norm.charAt(0).toUpperCase() + make_norm.slice(1)
-        };
-      });
+      // Only include makes that have at least one model
+      const makeModelCount = modelMakes.reduce((acc, item) => {
+        const key = item.make_norm;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const uniqueMakes = [...new Set(modelMakes.map(item => item.make_norm))]
+        .filter(make_norm => makeModelCount[make_norm] > 0) // Only include makes with models
+        .map(make_norm => {
+          const entry = modelMakes.find(item => item.make_norm === make_norm);
+          return {
+            make_norm: make_norm,
+            display_make: entry?.display_make || make_norm.charAt(0).toUpperCase() + make_norm.slice(1)
+          };
+        });
       setMakes(uniqueMakes);
     } else {
       // Fallback to car_listings if no makes found in price_models
       const { data: listingMakes, error: listingError } = await supabase
         .from('car_listings')
-        .select('make')
+        .select('make, model')
         .eq('is_active', true)
+        .not('model', 'is', null)
         .order('make', { ascending: true });
 
       if (!listingError && listingMakes) {
+        // Only include makes that have at least one model
+        const makeModelCount = listingMakes.reduce((acc, item) => {
+          const make = (item.make as string).toLowerCase();
+          acc[make] = (acc[make] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
         const uniqueMakes = [...new Set(listingMakes.map(item => {
           const make = item.make as string;
           return {
             make_norm: make.toLowerCase(),
             display_make: make
           };
-        }))];
+        }))].filter(makeObj => makeModelCount[makeObj.make_norm] > 0);
+        
         setMakes(uniqueMakes);
       }
     }
