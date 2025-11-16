@@ -66,6 +66,7 @@ export default function AdminPanel() {
   });
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
   const [statTimeSeriesData, setStatTimeSeriesData] = useState<Record<string, TimeSeriesData[]>>({});
+  const [graphTimeRange, setGraphTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('month');
 
   useEffect(() => {
     checkAdminAccess();
@@ -306,11 +307,26 @@ export default function AdminPanel() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  async function fetchStatTimeSeries(statName: string) {
+  async function fetchStatTimeSeries(statName: string, timeRange?: 'day' | 'week' | 'month' | 'year') {
     try {
       const now = new Date();
       const startDate = new Date();
-      startDate.setDate(now.getDate() - 30); // Last 30 days
+      const range = timeRange || graphTimeRange;
+
+      switch (range) {
+        case 'day':
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setDate(now.getDate() - 30);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+      }
 
       let data: Array<{ created_at: string }> | null = null;
 
@@ -355,7 +371,9 @@ export default function AdminPanel() {
 
       if (data) {
         const timeSeries = groupByDate(data);
-        setStatTimeSeriesData(prev => ({ ...prev, [statName]: timeSeries }));
+        // Limit to 30 bars max
+        const limitedTimeSeries = timeSeries.slice(-30);
+        setStatTimeSeriesData(prev => ({ ...prev, [statName]: limitedTimeSeries }));
       }
     } catch (error) {
       console.error(`Error fetching time series for ${statName}:`, error);
@@ -377,9 +395,14 @@ export default function AdminPanel() {
       setExpandedStat(null);
     } else {
       setExpandedStat(statName);
-      if (!statTimeSeriesData[statName]) {
-        fetchStatTimeSeries(statName);
-      }
+      fetchStatTimeSeries(statName, graphTimeRange);
+    }
+  }
+
+  function handleGraphTimeRangeChange(range: 'day' | 'week' | 'month' | 'year') {
+    setGraphTimeRange(range);
+    if (expandedStat) {
+      fetchStatTimeSeries(expandedStat, range);
     }
   }
 
@@ -498,7 +521,7 @@ export default function AdminPanel() {
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <Card 
-          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          className={`transition-all duration-300 hover:shadow-lg cursor-pointer ${expandedStat === 'searches' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => handleStatClick('searches')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -512,25 +535,10 @@ export default function AdminPanel() {
               <ChangeIndicator change={dailyChanges.totalSearches} />
             </div>
           </CardContent>
-          {expandedStat === 'searches' && statTimeSeriesData.searches && (
-            <CardContent className="pt-0 border-t">
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {statTimeSeriesData.searches.slice(-10).reverse().map((item) => (
-                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                      <span className="font-medium">{item.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
 
         <Card 
-          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          className={`transition-all duration-300 hover:shadow-lg cursor-pointer ${expandedStat === 'pageViews' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => handleStatClick('pageViews')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -544,21 +552,6 @@ export default function AdminPanel() {
               <ChangeIndicator change={dailyChanges.totalPageViews} />
             </div>
           </CardContent>
-          {expandedStat === 'pageViews' && statTimeSeriesData.pageViews && (
-            <CardContent className="pt-0 border-t">
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {statTimeSeriesData.pageViews.slice(-10).reverse().map((item) => (
-                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                      <span className="font-medium">{item.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
 
         <Card className="transition-all duration-300 hover:shadow-lg">
@@ -576,7 +569,7 @@ export default function AdminPanel() {
         </Card>
 
         <Card 
-          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          className={`transition-all duration-300 hover:shadow-lg cursor-pointer ${expandedStat === 'savedSearches' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => handleStatClick('savedSearches')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -590,25 +583,10 @@ export default function AdminPanel() {
               <ChangeIndicator change={dailyChanges.totalSavedSearches} />
             </div>
           </CardContent>
-          {expandedStat === 'savedSearches' && statTimeSeriesData.savedSearches && (
-            <CardContent className="pt-0 border-t">
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {statTimeSeriesData.savedSearches.slice(-10).reverse().map((item) => (
-                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                      <span className="font-medium">{item.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
 
         <Card 
-          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          className={`transition-all duration-300 hover:shadow-lg cursor-pointer ${expandedStat === 'savedListings' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => handleStatClick('savedListings')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -622,25 +600,10 @@ export default function AdminPanel() {
               <ChangeIndicator change={dailyChanges.totalSavedListings} />
             </div>
           </CardContent>
-          {expandedStat === 'savedListings' && statTimeSeriesData.savedListings && (
-            <CardContent className="pt-0 border-t">
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {statTimeSeriesData.savedListings.slice(-10).reverse().map((item) => (
-                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                      <span className="font-medium">{item.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
 
         <Card 
-          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          className={`transition-all duration-300 hover:shadow-lg cursor-pointer ${expandedStat === 'activeListings' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => handleStatClick('activeListings')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -654,23 +617,85 @@ export default function AdminPanel() {
               <ChangeIndicator change={dailyChanges.activeListings} />
             </div>
           </CardContent>
-          {expandedStat === 'activeListings' && statTimeSeriesData.activeListings && (
-            <CardContent className="pt-0 border-t">
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {statTimeSeriesData.activeListings.slice(-10).reverse().map((item) => (
-                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
-                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                      <span className="font-medium">{item.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
       </div>
+
+      {/* Full Width Graph Below Stats */}
+      {expandedStat && statTimeSeriesData[expandedStat] && (
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">
+                {expandedStat === 'searches' && 'Total Searches Over Time'}
+                {expandedStat === 'pageViews' && 'Total Page Views Over Time'}
+                {expandedStat === 'savedSearches' && 'Saved Searches Over Time'}
+                {expandedStat === 'savedListings' && 'Saved Listings Over Time'}
+                {expandedStat === 'activeListings' && 'Active Listings Over Time'}
+              </CardTitle>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleGraphTimeRangeChange('day')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${graphTimeRange === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                >
+                  Day
+                </button>
+                <button
+                  onClick={() => handleGraphTimeRangeChange('week')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${graphTimeRange === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => handleGraphTimeRangeChange('month')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${graphTimeRange === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                >
+                  Month
+                </button>
+                <button
+                  onClick={() => handleGraphTimeRangeChange('year')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${graphTimeRange === 'year' ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                >
+                  Year
+                </button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="w-full">
+              {/* Bar Graph */}
+              <div className="flex items-end justify-between gap-1 h-64">
+                {statTimeSeriesData[expandedStat].map((item, index) => {
+                  const maxCount = Math.max(...statTimeSeriesData[expandedStat].map(d => d.count));
+                  const heightPercent = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                  
+                  return (
+                    <div key={item.date} className="flex-1 flex flex-col items-center group">
+                      <div className="relative w-full flex flex-col justify-end h-full">
+                        {/* Tooltip on hover */}
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap pointer-events-none z-10">
+                          {item.count.toLocaleString()}
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                        {/* Bar */}
+                        <div 
+                          className="w-full bg-blue-500 hover:bg-blue-600 transition-all rounded-t cursor-pointer"
+                          style={{ height: `${heightPercent}%` }}
+                        ></div>
+                      </div>
+                      {/* Date label - show every few bars to avoid crowding */}
+                      {(statTimeSeriesData[expandedStat].length <= 15 || index % Math.ceil(statTimeSeriesData[expandedStat].length / 15) === 0) && (
+                        <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">
+                          {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs for detailed analytics */}
       <Tabs defaultValue="searches" className="space-y-4">
