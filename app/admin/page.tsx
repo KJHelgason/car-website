@@ -64,6 +64,8 @@ export default function AdminPanel() {
     totalSavedListings: 0,
     activeListings: 0,
   });
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
+  const [statTimeSeriesData, setStatTimeSeriesData] = useState<Record<string, TimeSeriesData[]>>({});
 
   useEffect(() => {
     checkAdminAccess();
@@ -74,18 +76,22 @@ export default function AdminPanel() {
       fetchStats();
       fetchTimeSeriesData();
       fetchPopularSearches();
+      fetchAllStatTimeSeries();
       
       // Set up auto-refresh every 30 seconds
       const interval = setInterval(() => {
         fetchStats();
         fetchTimeSeriesData();
         fetchPopularSearches();
+        if (expandedStat) {
+          fetchStatTimeSeries(expandedStat);
+        }
       }, 30000); // 30 seconds
 
       // Cleanup interval on unmount or when dependencies change
       return () => clearInterval(interval);
     }
-  }, [authorized, timeRange]);
+  }, [authorized, timeRange, expandedStat]);
 
   async function checkAdminAccess() {
     const adminStatus = await isAdmin();
@@ -300,6 +306,83 @@ export default function AdminPanel() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  async function fetchStatTimeSeries(statName: string) {
+    try {
+      const now = new Date();
+      const startDate = new Date();
+      startDate.setDate(now.getDate() - 30); // Last 30 days
+
+      let data: Array<{ created_at: string }> | null = null;
+
+      switch (statName) {
+        case 'searches':
+          const { data: searches } = await supabase
+            .from('search_analytics')
+            .select('created_at')
+            .gte('created_at', startDate.toISOString());
+          data = searches;
+          break;
+        case 'pageViews':
+          const { data: views } = await supabase
+            .from('page_views')
+            .select('created_at')
+            .gte('created_at', startDate.toISOString());
+          data = views;
+          break;
+        case 'savedSearches':
+          const { data: savedSearches } = await supabase
+            .from('saved_searches')
+            .select('created_at')
+            .gte('created_at', startDate.toISOString());
+          data = savedSearches;
+          break;
+        case 'savedListings':
+          const { data: savedListings } = await supabase
+            .from('saved_listings')
+            .select('created_at')
+            .gte('created_at', startDate.toISOString());
+          data = savedListings;
+          break;
+        case 'activeListings':
+          const { data: activeListings } = await supabase
+            .from('car_listings')
+            .select('scraped_at')
+            .eq('is_active', true)
+            .gte('scraped_at', startDate.toISOString());
+          data = activeListings?.map(item => ({ created_at: item.scraped_at })) || null;
+          break;
+      }
+
+      if (data) {
+        const timeSeries = groupByDate(data);
+        setStatTimeSeriesData(prev => ({ ...prev, [statName]: timeSeries }));
+      }
+    } catch (error) {
+      console.error(`Error fetching time series for ${statName}:`, error);
+    }
+  }
+
+  async function fetchAllStatTimeSeries() {
+    await Promise.all([
+      fetchStatTimeSeries('searches'),
+      fetchStatTimeSeries('pageViews'),
+      fetchStatTimeSeries('savedSearches'),
+      fetchStatTimeSeries('savedListings'),
+      fetchStatTimeSeries('activeListings'),
+    ]);
+  }
+
+  function handleStatClick(statName: string) {
+    if (expandedStat === statName) {
+      setExpandedStat(null);
+    } else {
+      setExpandedStat(statName);
+      if (!statTimeSeriesData[statName]) {
+        fetchStatTimeSeries(statName);
+      }
+    }
+  }
+
   function handleManualRefresh() {
     fetchStats();
     fetchTimeSeriesData();
@@ -414,32 +497,68 @@ export default function AdminPanel() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="transition-all duration-300 hover:shadow-lg">
+        <Card 
+          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          onClick={() => handleStatClick('searches')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Searches</CardTitle>
             <Search className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
-              <AnimatedNumber value={stats.totalSearches} />
+            <AnimatedNumber value={stats.totalSearches} />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Daily: {dailyChanges.totalSearches.toLocaleString()}</p>
               <ChangeIndicator change={dailyChanges.totalSearches} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
+          {expandedStat === 'searches' && statTimeSeriesData.searches && (
+            <CardContent className="pt-0 border-t">
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {statTimeSeriesData.searches.slice(-10).reverse().map((item) => (
+                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
+                      <span className="font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
-        <Card className="transition-all duration-300 hover:shadow-lg">
+        <Card 
+          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          onClick={() => handleStatClick('pageViews')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Page Views</CardTitle>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
-              <AnimatedNumber value={stats.totalPageViews} />
+            <AnimatedNumber value={stats.totalPageViews} />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Daily: {dailyChanges.totalPageViews.toLocaleString()}</p>
               <ChangeIndicator change={dailyChanges.totalPageViews} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
+          {expandedStat === 'pageViews' && statTimeSeriesData.pageViews && (
+            <CardContent className="pt-0 border-t">
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {statTimeSeriesData.pageViews.slice(-10).reverse().map((item) => (
+                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
+                      <span className="font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         <Card className="transition-all duration-300 hover:shadow-lg">
@@ -448,54 +567,108 @@ export default function AdminPanel() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
-              <AnimatedNumber value={stats.totalUsers} />
+            <AnimatedNumber value={stats.totalUsers} />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Daily: {dailyChanges.totalUsers.toLocaleString()}</p>
               <ChangeIndicator change={dailyChanges.totalUsers} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
         </Card>
 
-        <Card className="transition-all duration-300 hover:shadow-lg">
+        <Card 
+          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          onClick={() => handleStatClick('savedSearches')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Saved Searches</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
-              <AnimatedNumber value={stats.totalSavedSearches} />
+            <AnimatedNumber value={stats.totalSavedSearches} />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Daily: {dailyChanges.totalSavedSearches.toLocaleString()}</p>
               <ChangeIndicator change={dailyChanges.totalSavedSearches} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
+          {expandedStat === 'savedSearches' && statTimeSeriesData.savedSearches && (
+            <CardContent className="pt-0 border-t">
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {statTimeSeriesData.savedSearches.slice(-10).reverse().map((item) => (
+                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
+                      <span className="font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
-        <Card className="transition-all duration-300 hover:shadow-lg">
+        <Card 
+          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          onClick={() => handleStatClick('savedListings')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Saved Listings</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
-              <AnimatedNumber value={stats.totalSavedListings} />
+            <AnimatedNumber value={stats.totalSavedListings} />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Daily: {dailyChanges.totalSavedListings.toLocaleString()}</p>
               <ChangeIndicator change={dailyChanges.totalSavedListings} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
+          {expandedStat === 'savedListings' && statTimeSeriesData.savedListings && (
+            <CardContent className="pt-0 border-t">
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {statTimeSeriesData.savedListings.slice(-10).reverse().map((item) => (
+                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
+                      <span className="font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
-        <Card className="transition-all duration-300 hover:shadow-lg">
+        <Card 
+          className="transition-all duration-300 hover:shadow-lg cursor-pointer"
+          onClick={() => handleStatClick('activeListings')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Listings</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
-              <AnimatedNumber value={stats.activeListings} />
+            <AnimatedNumber value={stats.activeListings} />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Daily: {dailyChanges.activeListings.toLocaleString()}</p>
               <ChangeIndicator change={dailyChanges.activeListings} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Yesterday&apos;s activity</p>
           </CardContent>
+          {expandedStat === 'activeListings' && statTimeSeriesData.activeListings && (
+            <CardContent className="pt-0 border-t">
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-3">Last 30 Days</h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {statTimeSeriesData.activeListings.slice(-10).reverse().map((item) => (
+                    <div key={item.date} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
+                      <span className="font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       </div>
 

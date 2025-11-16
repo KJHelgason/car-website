@@ -211,13 +211,13 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
               className="hover:bg-gray-50 transition-all py-0 overflow-hidden"
             >
               <div className="flex items-stretch">
-                {/* Image - clickable, fills top, bottom, left edges */}
-                <div className="relative flex-shrink-0 w-24 sm:w-32 overflow-hidden">
+                {/* Image - clickable, square aspect ratio */}
+                <div className="relative flex-shrink-0 w-24 sm:w-32 aspect-square overflow-hidden">
                   <a
                     href={listing.url || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block h-full relative"
+                    className="block w-full h-full relative"
                     onClick={(e) => {
                       if (!listing.url) e.preventDefault();
                     }}
@@ -227,7 +227,7 @@ export function RecentListings({ onViewAnalysis }: RecentListingsProps) {
                         <img
                           src={listing.image_url}
                           alt={`${listing.display_make || listing.make} ${listing.display_name || listing.model}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                             const placeholder = e.currentTarget.nextElementSibling as HTMLElement;

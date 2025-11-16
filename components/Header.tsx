@@ -153,14 +153,21 @@ export default function Header() {
               </>
             ) : (
               <>
-                <Link href="/login">
+                {/* Desktop: Show both Login and Signup */}
+                <Link href="/login" className="hidden sm:inline-block">
                   <Button variant="ghost" size="sm" className="cursor-pointer">
                     {t('header.login')}
                   </Button>
                 </Link>
-                <Link href="/signup">
+                <Link href="/signup" className="hidden sm:inline-block">
                   <Button size="sm" className="cursor-pointer">
                     {t('header.signup')}
+                  </Button>
+                </Link>
+                {/* Mobile: Show only Login button */}
+                <Link href="/login" className="sm:hidden">
+                  <Button size="sm" className="cursor-pointer">
+                    {t('header.login')}
                   </Button>
                 </Link>
               </>
