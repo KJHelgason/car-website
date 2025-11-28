@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useLanguage } from '@/lib/language-context';
@@ -53,9 +54,16 @@ export default function Header() {
           <Link 
             href="/" 
             onClick={handleLogoClick}
-            className="text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
+            className="flex items-center gap-3 text-2xl font-bold text-primary hover:opacity-80 transition-opacity"
           >
-            Allir Bilar
+            <Image 
+              src="/logo.png" 
+              alt="Allir Bilar Logo" 
+              width={40} 
+              height={40}
+              className="object-contain"
+            />
+            <span>Allir Bilar</span>
           </Link>
 
           {/* Navigation */}
