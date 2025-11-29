@@ -42,9 +42,7 @@ export default function SignUpPage() {
     } else {
       setSuccess(true);
       setLoading(false);
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      // Don't auto-redirect, let user read the confirmation message
     }
   };
 
@@ -115,12 +113,27 @@ export default function SignUpPage() {
             )}
 
             {success && (
-              <p className="text-green-600 text-sm">
-                Account created successfully! Redirecting to login...
-              </p>
+              <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm">
+                <p className="font-medium text-green-800 mb-2">
+                  ✓ Account created successfully!
+                </p>
+                <p className="text-green-700 mb-2">
+                  Please check your email (<strong>{email}</strong>) to confirm your account.
+                </p>
+                <p className="text-green-600 text-xs">
+                  You'll need to click the confirmation link in the email before you can sign in.
+                </p>
+                <div className="mt-3">
+                  <Link href="/login">
+                    <Button variant="outline" size="sm" className="w-full">
+                      Go to Sign In
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || success}>
               {loading ? 'Creating account...' : 'Sign Up'}
             </Button>
           </form>
