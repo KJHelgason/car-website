@@ -82,14 +82,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         
-        {/* Google AdSense */}
-        <Script
-          id="adsense-script"
-          strategy="afterInteractive"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1682128968609505"
-          crossOrigin="anonymous"
-        />
         <meta name="google-adsense-account" content="ca-pub-1682128968609505" />
 
         {/* Google Analytics (GA4) - static snippet */}
@@ -121,6 +113,15 @@ export default function RootLayout({
         )}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
+        {/* Google AdSense - moved outside head to avoid data-nscript warning */}
+        <Script
+          id="adsense-script"
+          strategy="afterInteractive"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1682128968609505"
+          crossOrigin="anonymous"
+        />
+        
         <AuthProvider>
           <LanguageProvider>
             <HeaderProvider>
