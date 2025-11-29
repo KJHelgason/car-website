@@ -4,8 +4,30 @@ import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, Search, Zap, BarChart3 } from 'lucide-react';
 import { useLanguage } from '@/lib/language-context';
 
-export function HeroSection() {
-  const { t } = useLanguage();
+interface HeroSectionProps {
+  activeListingCount: number | null;
+}
+
+function formatIntegerWithSeparator(value: number, separator: string) {
+  const rounded = Math.round(value);
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, separator);
+}
+
+function formatActiveListings(
+  count: number | null,
+  fallback: string,
+  language: 'en' | 'is',
+) {
+  if (typeof count !== 'number' || !Number.isFinite(count)) {
+    return fallback;
+  }
+  const separator = language === 'is' ? '.' : ',';
+  return formatIntegerWithSeparator(count, separator);
+}
+
+export function HeroSection({ activeListingCount }: HeroSectionProps) {
+  const { t, language } = useLanguage();
+  const activeListingsDisplay = formatActiveListings(activeListingCount, t('common.unknown'), language);
   
   return (
     <div className="mb-6">
@@ -46,7 +68,7 @@ export function HeroSection() {
                 <BarChart3 className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-900">10K+</div>
+                <div className="text-2xl font-bold text-slate-900">{activeListingsDisplay}</div>
                 <div className="text-xs text-slate-500">{t('common.activeListings')}</div>
               </div>
             </div>

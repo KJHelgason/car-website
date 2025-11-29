@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp } from 'lucide-react';
@@ -11,14 +12,14 @@ interface PopularSearchesProps {
 }
 
 const popularCars = [
-  { make: 'Toyota', model: 'Corolla', year: '2020', display: 'Toyota Corolla' },
-  { make: 'Volkswagen', model: 'Golf', year: '2019', display: 'VW Golf' },
-  { make: 'Mazda', model: 'CX-5', year: '2021', display: 'Mazda CX-5' },
-  { make: 'Hyundai', model: 'Tucson', year: '2020', display: 'Hyundai Tucson' },
-  { make: 'Toyota', model: 'RAV4', year: '2019', display: 'Toyota RAV4' },
-  { make: 'Honda', model: 'Civic', year: '2020', display: 'Honda Civic' },
-  { make: 'Nissan', model: 'Qashqai', year: '2019', display: 'Nissan Qashqai' },
-  { make: 'Kia', model: 'Sportage', year: '2020', display: 'Kia Sportage' },
+  { make: 'Toyota', model: 'Corolla', year: '2020', display: 'Toyota Corolla', guide: '/cars/toyota/corolla' },
+  { make: 'Volkswagen', model: 'Golf', year: '2019', display: 'VW Golf', guide: '/cars/volkswagen/golf' },
+  { make: 'Mazda', model: 'CX-5', year: '2021', display: 'Mazda CX-5', guide: '/cars/mazda/cx-5' },
+  { make: 'Hyundai', model: 'Tucson', year: '2020', display: 'Hyundai Tucson', guide: '/cars/hyundai/tucson' },
+  { make: 'Toyota', model: 'RAV4', year: '2019', display: 'Toyota RAV4', guide: '/cars/toyota/rav4' },
+  { make: 'Honda', model: 'Civic', year: '2020', display: 'Honda Civic', guide: '/cars/honda/civic' },
+  { make: 'Nissan', model: 'Qashqai', year: '2019', display: 'Nissan Qashqai', guide: '/cars/nissan/qashqai' },
+  { make: 'Kia', model: 'Sportage', year: '2020', display: 'Kia Sportage', guide: '/cars/kia/sportage' },
 ];
 
 export function PopularSearches({ onSearch }: PopularSearchesProps) {
@@ -58,6 +59,16 @@ export function PopularSearches({ onSearch }: PopularSearchesProps) {
               </div>
             </Button>
           ))}
+        </div>
+        <div className="mt-5 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4 text-xs sm:text-sm text-muted-foreground">
+          <p className="mb-2 font-medium text-foreground">Need a deeper market briefing?</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {popularCars.map((car) => (
+              <Link key={car.display} href={car.guide} className="text-primary hover:underline">
+                {car.display} guide
+              </Link>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { HeaderProvider } from "@/components/ClientHeader";
 import { AuthProvider } from "@/lib/auth-context";
 import { LanguageProvider } from "@/lib/language-context";
+import { AdSenseScript } from "@/components/AdSenseScript";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -113,15 +114,7 @@ export default function RootLayout({
         )}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
-        {/* Google AdSense - moved outside head to avoid data-nscript warning */}
-        <Script
-          id="adsense-script"
-          strategy="afterInteractive"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1682128968609505"
-          crossOrigin="anonymous"
-        />
-        
+        <AdSenseScript />
         <AuthProvider>
           <LanguageProvider>
             <HeaderProvider>

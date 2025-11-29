@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Heart, Search, LogOut, TrendingDown, Shield, Globe } from 'lucide-react';
+import { User, Heart, Search, LogOut, TrendingDown, Shield, Globe, BookOpen } from 'lucide-react';
 import { TipsButton } from '@/components/ui/tipsbutton';
 import { SavedSearchesDropdown } from '@/components/SavedSearchesDropdown';
 import { SavedListingsDropdown } from '@/components/SavedListingsDropdown';
@@ -71,10 +71,10 @@ export default function Header() {
             {/* Tips Button - Only on home page */}
             {isHomePage && <TipsButton variant="ghost" size="sm" className="cursor-pointer"/>}
             
-            {/* Saved Searches Dropdown - Hidden on mobile */}
+            {/* Saved Searches Dropdown - Hidden up to large screens */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hidden md:flex">
+                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hidden lg:flex">
                   <Search className="h-4 w-4" />
                   <span className="hidden sm:inline">{t('header.savedSearches')}</span>
                 </Button>
@@ -84,10 +84,10 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Saved Listings Dropdown - Hidden on mobile */}
+            {/* Saved Listings Dropdown - Hidden up to large screens */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hidden md:flex">
+                <Button variant="ghost" size="sm" className="gap-2 cursor-pointer hidden lg:flex">
                   <Heart className="h-4 w-4" />
                   <span className="hidden sm:inline">{t('header.saved')}</span>
                 </Button>
@@ -101,6 +101,13 @@ export default function Header() {
               <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
                 <TrendingDown className="h-4 w-4" />
                 <span className="hidden md:inline">{t('header.sold')}</span>
+              </Button>
+            </Link>
+
+            <Link href="/cars">
+              <Button variant="ghost" size="sm" className="gap-2 cursor-pointer">
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden md:inline">{t('header.guides')}</span>
               </Button>
             </Link>
             

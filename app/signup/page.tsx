@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ export default function SignUpPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +119,7 @@ export default function SignUpPage() {
                   Please check your email (<strong>{email}</strong>) to confirm your account.
                 </p>
                 <p className="text-green-600 text-xs">
-                  You'll need to click the confirmation link in the email before you can sign in.
+                  You&apos;ll need to click the confirmation link in the email before you can sign in.
                 </p>
                 <div className="mt-3">
                   <Link href="/login">
