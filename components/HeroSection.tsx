@@ -28,6 +28,9 @@ function formatActiveListings(
 export function HeroSection({ activeListingCount }: HeroSectionProps) {
   const { t, language } = useLanguage();
   const activeListingsDisplay = formatActiveListings(activeListingCount, t('common.unknown'), language);
+  const activeListingsLabel = typeof activeListingCount === 'number'
+    ? `${activeListingsDisplay} ${t('common.activeListings').toLowerCase()}`
+    : t('hero.listings');
   
   return (
     <div className="mb-6">
@@ -53,7 +56,7 @@ export function HeroSection({ activeListingCount }: HeroSectionProps) {
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
               <Search className="h-4 w-4" />
-              <span className="text-sm font-medium">{t('hero.listings')}</span>
+              <span className="text-sm font-medium capitalize">{activeListingsLabel}</span>
             </div>
           </div>
         </div>
